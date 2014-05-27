@@ -17,7 +17,7 @@ package com.google.cloud.genomics
 
 import com.google.api.client.auth.oauth2.Credential
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp
-import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver
+import com.google.api.client.googleapis.extensions.java6.auth.oauth2.GooglePromptReceiver
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
@@ -50,7 +50,7 @@ object Client {
       httpTransport, jsonFactory, secrets,
       Arrays.asList(DevStorageScope, GenomicsScope, EmailScope)).setDataStoreFactory(dataStoreFactory).build()
 
-    val credential = new AuthorizationCodeInstalledApp(flow, new LocalServerReceiver()).authorize("user")
+    val credential = new AuthorizationCodeInstalledApp(flow, new GooglePromptReceiver()).authorize("user")
 
     val service = new Genomics.Builder(httpTransport, jsonFactory, credential)
       .setApplicationName(applicationName)
