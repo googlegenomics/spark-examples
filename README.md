@@ -6,7 +6,7 @@ The projects in this repository demonstrate working with genomic data accessible
 Getting Started
 ---------------
 
- 1. Follow the [authentication](https://developers.google.com/genomics#authenticate) instructions and download the `client_secrets.json` file. This file can be copied to the _spark-examples_ directory.
+ 1. Follow the [sign up instructions](https://developers.google.com/genomics) and download the `client_secrets.json` file. This file can be copied to the _spark-examples_ directory.
 
  2. Download and install [Apache Spark](https://spark.apache.org/downloads.html).
 
