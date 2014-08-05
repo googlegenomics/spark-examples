@@ -17,7 +17,8 @@ libraryDependencies ++= Seq(
   "com.google.oauth-client" % "google-oauth-client-jetty" % googleAPIVersion,
   "com.google.http-client" % "google-http-client" % googleAPIVersion,
   "com.google.http-client" % "google-http-client-jackson2" % googleAPIVersion,
-  "org.apache.spark" %% "spark-core" % sparkVersion % "provided"
+  "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
+  "org.rogach" %% "scallop" % "0.9.5"
 )
 
 resolvers ++= Seq(
