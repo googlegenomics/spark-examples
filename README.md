@@ -14,11 +14,8 @@ Getting Started
 
 
 Local Run
-=========
-From the spark-examples directory run 
-```
-sbt run
-```
+---------
+From the `spark-examples` directory run `sbt run`
 
 Use the following flags to match your runtime configuration:
 
@@ -33,8 +30,7 @@ $ sbt "run --help"
       --help                    Show help message
 ```
 
-For example to run spark in local mode with four cores and read the client_secrets.json file 
-from the parent directory:
+For example: 
 
 ```
 $ sbt "run --client-secrets ../client_secrets.json --spark-master local[4]"
@@ -52,7 +48,9 @@ Multiple main classes detected, select one to run:
 Enter number:
 ```
 
-If you are getting a `java.lang.OutOfMemoryError: PermGen space` error, set the following SBT_OPTS flag:
+### Troubleshooting:
+
+If you are seeing `java.lang.OutOfMemoryError: PermGen space` errors, set the following SBT_OPTS flag:
 ```
 export SBT_OPTS='-XX:MaxPermSize=256m'
 ``` 
