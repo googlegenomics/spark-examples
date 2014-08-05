@@ -12,23 +12,34 @@ Getting Started
 
  3. If needed, install [SBT](http://www.scala-sbt.org/release/docs/Getting-Started/Setup.html)
 
- 4. Open the file `src/main/scala/com/google/cloud/genomics/spark/examples/SearchReadsExample.scala` in an editor and change the following values to match your configuration:
-
-```
-object Examples {
-  final val secretsFile = "PATH_TO/client_secrets.json"
-  final val sparkPath = "SPARK_HOME_DIR"
-  final val sparkMaster = "local"
-  final val outputPath = "."
-  final val jarPath = "PATH_TO/googlegenomics-spark-examples-assembly-1.0.jar"
-```
 
 Local Run
----------
+=========
+From the spark-examples directory run 
 ```
-  cd spark-examples
-  sbt run
+sbt run
 ```
+
+Use the following flags to match your runtime configuration:
+
+```
+$ sbt "run --help"
+  -c, --client-secrets  <arg>    (default = client_secrets.json)
+  -j, --jar-path  <arg>
+                                (default = target/scala-2.10/googlegenomics-spark-examples-assembly-1.0.jar)
+  -o, --output-path  <arg>       (default = .)
+  -s, --spark-master  <arg>      (default = local[2])
+      --spark-path  <arg>        (default = )
+      --help                    Show help message
+```
+
+For example to run spark in local mode with four cores and read the client_secrets.json file 
+from the parent directory:
+
+```
+$ sbt "run --client-secrets ../client_secrets.json --spark-master local[4]"
+```
+
 
 A menu should appear asking you to pick the sample to run:
 ```
@@ -40,6 +51,11 @@ Multiple main classes detected, select one to run:
 
 Enter number:
 ```
+
+If you are getting a `java.lang.OutOfMemoryError: PermGen space` error, set the following SBT_OPTS flag:
+```
+export SBT_OPTS='-XX:MaxPermSize=256m'
+``` 
 
 Cluster Run
 -----------
