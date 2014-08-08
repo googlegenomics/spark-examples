@@ -68,6 +68,83 @@ Now generate the self-contained `googlegenomics-spark-examples-assembly-1.0.jar`
 which can be found in the _spark-examples/target/scala-2.10_ directory. Ensure this JAR is copied to all workers at the same location. Run the examples as above.
 
 
+Run on Google Cloud Platform
+____________________________
+Follow the [instructions](https://groups.google.com/forum/#!topic/gcp-hadoop-announce/EfQms8tK5cE) to setup Google Cloud and install the Cloud SDK. At the end of the process you should be able to launch a test instance and login into it using gcutil.
+
+
+Create a Google Cloud Storage bucket to store the configuration of the cluster.
+
+```
+gsutil mb -p peak-lattice-642 gs://<bucket-name>
+```
+
+Run (bdutil)[https://groups.google.com/forum/#!topic/gcp-hadoop-announce/EfQms8tK5cE] to launch a Spark cluster
+
+```
+./bdutil -e extensions/spark/spark_shark_env.sh -b <configbucket> deploy
+
+```
+
+Upload the following files to provide the workers with appropriate credentials. (This step assumes thad you already ran the example locally and generated the credentials.)
+
+```
+gcutil push --ssh_user=hadoop hs-ghfs-nn ~/.store client_secrets.json .
+gcutil push --ssh_user=hadoop hs-ghfs-dn-1 ~/.store client_secrets.json .
+gcutil push --ssh_user=hadoop hs-ghfs-dn-0 ~/.store client_secrets.json .
+```
+
+Finally, upload the assembly jar to the master node.
+```
+gcutil push --ssh_user=hadoop hs-ghfs-nn target/scala-2.10/googlegenomics-spark-examples-assembly-1.0.jar .
+```
+
+To run the examples on the GCE cluster login to the master node and launch the examples using the `scala-class` script.
+```
+# Login into the master node
+gcutil ssh --ssh_user=hadoop hs-ghfs-nn
+
+# Add the jar to the classpath
+export SPARK_CLASSPATH=googlegenomics-spark-examples-assembly-1.0.jar
+
+# Run the examples
+spark-class com.google.cloud.genomics.spark.examples.SearchReadsExample1 \
+--client-secrets /home/hadoop/client_secrets.json \ 
+--spark-master spark://hs-ghfs-nn:7077 \
+--jar-path googlegenomics-spark-examples-assembly-1.0.jar
+```
+
+The --jar-path will take care of copying the jar to all the workers before launching the tasks.
+
+
+### Debuging 
+To be able to debug your jobs from the UI, you can either setup a SOCKS5 proxy or open the web UI ports on your instances, we describe both processes.
+
+To use your SOCKS5 proxy with port 12345 on Firefox:
+
+```
+bdutil socksproxy 12345
+Go to Edit -> Preferences -> Advanced -> Network -> Settings
+Enable "Manual proxy configuration" with a SOCKS host "localhost" on port 12345
+Force the DNS resolution to occur on the remote proxy host rather than locally.
+Go to "about:config" in the URL bar
+Search for "socks" to toggle "network.proxy.socks_remote_dns" to "true".
+Visit the web UIs exported by your cluster!
+http://hs-ghfs-nn:8080 for Spark
+```
+
+To setup open the web UI ports.
+
+```
+gcutil addfirewall default-allow-8080 \
+--description="Incoming http 8080 allowed." \
+--allowed="tcp:4040,8080,8081" \
+--target_tags="http-8080-server"
+```
+From the [developers console](https://console.developers.google.com/project),
+add the "http-8080-server" tag to the master and worker instances or follow the instructions
+[here](https://developers.google.com/compute/docs/instances#tags) to do it from the command line.
+
 Licensing
 ---------
 
