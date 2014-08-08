@@ -75,8 +75,7 @@ object Examples {
 object SearchReadsExample1 {
   def main(args: Array[String]) = {
     val conf = new Conf(args)
-    val sc = new SparkContext(
-        conf.sparkMaster(), this.getClass.getName, conf.sparkPath(), List(conf.jarPath()))
+    val sc = conf.newSparkContext(this.getClass.getName)
     Logger.getLogger("org").setLevel(Level.WARN)
     val region = Map(("11" -> (Examples.Cilantro - 1000, Examples.Cilantro + 1000)))
     val data = new ReadsRDD(sc, this.getClass.getName, conf.clientSecrets(),
@@ -92,13 +91,16 @@ object SearchReadsExample1 {
       if (p < a) { p.toLong } else { a }
     }
     println(List.fill((Examples.Cilantro - first).toInt)(" ").foldLeft("")(_ + _) + "v")
-    data.foreach { rk =>
+    val out = data.map { rk =>
       val (_, read) = rk
       val i = (Examples.Cilantro - read.position).toInt
       val bases = read.alignedBases.splitAt(i + 1)
       val q = "%02d".format(read.baseQuality(i) - 33)
-      println(List.fill((read.position - first).toInt)(" ").foldLeft("")(_ + _) + bases._1 + "(" + q + ") " + bases._2)
+      List.fill((read.position - first).toInt)(" ").foldLeft("")(_ + _) + bases._1 + "(" + q + ") " + bases._2
     }
+    // Collect the results so they are printed on the local console.
+    out.collect.foreach(println(_))
+    
     println(List.fill((Examples.Cilantro - first).toInt)(" ").foldLeft("")(_ + _) + "^")
   }
 }
@@ -109,8 +111,7 @@ object SearchReadsExample1 {
 object SearchReadsExample2 {
   def main(args: Array[String]) = {
     val conf = new Conf(args)
-    val sc = new SparkContext(
-        conf.sparkMaster(), this.getClass.getName, conf.sparkPath(), List(conf.jarPath()))
+    val sc = conf.newSparkContext(this.getClass.getName)
     val chr = "21"
     val len = Examples.HumanChromosomes(chr)
     val region = Map((chr -> (1L, len)))
@@ -130,8 +131,7 @@ object SearchReadsExample3 {
   def main(args: Array[String]) = {
     val conf = new Conf(args)
     val outPath = conf.outputPath()
-    val sc = new SparkContext(
-        conf.sparkMaster(), this.getClass.getName, conf.sparkPath(), List(conf.jarPath()))
+    val sc = conf.newSparkContext(this.getClass.getName)
     val chr = "21"
     val region = Map((chr -> (1L, Examples.HumanChromosomes(chr))))
     val data = new ReadsRDD(sc, this.getClass.getName, conf.clientSecrets(),
@@ -160,8 +160,7 @@ object SearchReadsExample4 {
   def main(args: Array[String]) = {
     val conf = new Conf(args)
     val outPath = conf.outputPath()
-    val sc = new SparkContext(
-        conf.sparkMaster(), this.getClass.getName, conf.sparkPath(), List(conf.jarPath()))
+    val sc = conf.newSparkContext(this.getClass.getName)
     val chr = "1"
     val region = Map((chr -> (100000000L, 101000000L)))
     val minMappingQual = 30
@@ -293,4 +292,7 @@ class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
   val outputPath = opt[String](default=Some("."))
   val jarPath = opt[String](default=Some("target/scala-2.10/googlegenomics-spark-examples-assembly-1.0.jar"))
   val clientSecrets = opt[String](default=Some("client_secrets.json"))
+  
+  def newSparkContext(className: String) = 
+    new SparkContext(this.sparkMaster(), className, this.sparkPath(), List(this.jarPath()))
 }
