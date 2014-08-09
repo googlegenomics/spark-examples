@@ -85,7 +85,7 @@ object SearchReadsExample1 {
         val (_, read) = rk
         read.position <= Examples.Cilantro && read.position + read.alignedBases.length >= Examples.Cilantro
       }.cache()
-    var first = data.collect.foldLeft(999999999L) { (a, b) =>
+    val first = data.collect.foldLeft(999999999L) { (a, b) =>
       val (_, read) = b
       val p = read.position
       if (p < a) { p.toLong } else { a }
@@ -214,8 +214,9 @@ object SearchReadsExample4 {
         }
         .groupByKey()
         .mapValues { v =>
-          val total = v.length.toDouble
-          v.groupBy(c => c)
+          val vSeq = v.toSeq
+          val total = vSeq.length.toDouble
+          vSeq.groupBy(c => c)
             .map(p => (p._1, p._2.length))
             .map(p => (p._1, p._2.toDouble / total))
         }

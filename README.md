@@ -82,7 +82,7 @@ gsutil mb -p peak-lattice-642 gs://<bucket-name>
 Run (bdutil)[https://groups.google.com/forum/#!topic/gcp-hadoop-announce/EfQms8tK5cE] to launch a Spark cluster
 
 ```
-./bdutil -e extensions/spark/spark_shark_env.sh -b <configbucket> deploy
+./bdutil -e extensions/spark/spark1_env.sh -b <configbucket> deploy
 
 ```
 
