@@ -75,7 +75,48 @@ class VariantsIterator(service: Genomics, part: VariantsPartition)
 
   override def next(): (VariantKey, Variant) = {
     val r = it.next()
+
+    val calls = { if (!r.containsKey("calls"))
+        null
+        else
+          for (c <- r.getCalls)
+            yield
+                Call(Map[String, Any](
+                    ("callsetId" -> c.getCallsetId),
+                    ("callsetName" -> c.getCallsetName),
+                    ("genotype" -> c.getGenotype.toList),
+                    ("genotypeLikelihood" -> {
+                      if (c.containsKey("genotypeLikelihood"))
+                        c.getGenotypeLikelihood.toList
+                        else
+                          null
+                              }),
+                    ("info" -> r.getInfo.toMap),
+                    ("phaseset" -> c.getPhaseset)))}
+
     (VariantKey(r.getContig, r.getPosition.toLong),
-        Variant(r.toMap))
+        Variant(Map[String, Any](
+            ("alternateBases" -> {
+              if (r.containsKey("alternateBases"))
+                r.getAlternateBases.toList
+                else null }),
+            ("calls" -> calls),
+            ("contig" -> r.getContig),
+            ("created" -> r.getCreated),
+            ("datasetId" -> r.getDatasetId),
+            ("end" -> {
+              if (r.containsKey("end"))
+                // Work around error 'value getEnd is not a member of
+                // com.google.api.services.genomics.model.Variant'
+                r.get("end")
+                else null}),
+            ("id" -> r.getId),
+            ("info" -> r.getInfo.toMap),
+            ("names" -> {
+              if (r.containsKey("names"))
+                r.getNames.toList
+                else null }),
+            ("position" -> r.getPosition),
+            ("referenceBases" -> r.getReferenceBases))))
   }
 }
