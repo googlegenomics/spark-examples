@@ -17,20 +17,16 @@ package com.google.cloud.genomics.spark.examples
 
 import collection.JavaConversions._
 import collection.mutable.{ Map => MutableMap }
-
 import com.google.api.services.genomics.model.SearchReadsetsRequest
 import com.google.cloud.genomics.Client
 import com.google.cloud.genomics.spark.examples.rdd.{ ReadsRDD, ReadsPartitioner, FixedSplits, TargetSizeSplits }
 import org.apache.log4j.{ Level, Logger }
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
+import org.rogach.scallop.ScallopOption
+import org.rogach.scallop.ScallopConf
 
 object Examples {
-  final val secretsFile = "PATH_TO/client_secrets.json"
-  final val sparkPath = "SPARK_HOME_DIR"
-  final val sparkMaster = "local"
-  final val outputPath = "."
-  final val jarPath = "PATH_TO/googlegenomics-spark-examples-assembly-1.0.jar"
 
   final val Google_1KG_HG00096_Readset = "CJDmkYn8ChCcnc7i4KaWqmQ"
   // From http://google-genomics.readthedocs.org/en/latest/constants.html
@@ -78,10 +74,11 @@ object Examples {
  */
 object SearchReadsExample1 {
   def main(args: Array[String]) = {
-    val sc = new SparkContext(Examples.sparkMaster, this.getClass.getName, Examples.sparkPath, List(Examples.jarPath))
+    val conf = new Conf(args)
+    val sc = conf.newSparkContext(this.getClass.getName)
     Logger.getLogger("org").setLevel(Level.WARN)
     val region = Map(("11" -> (Examples.Cilantro - 1000, Examples.Cilantro + 1000)))
-    val data = new ReadsRDD(sc, this.getClass.getName, Examples.secretsFile,
+    val data = new ReadsRDD(sc, this.getClass.getName, conf.clientSecrets(),
       List(Examples.Google_Example_Readset),
       new ReadsPartitioner(region, FixedSplits(1)))
       .filter { rk =>
@@ -94,13 +91,16 @@ object SearchReadsExample1 {
       if (p < a) { p.toLong } else { a }
     }
     println(List.fill((Examples.Cilantro - first).toInt)(" ").foldLeft("")(_ + _) + "v")
-    data.foreach { rk =>
+    val out = data.map { rk =>
       val (_, read) = rk
       val i = (Examples.Cilantro - read.position).toInt
       val bases = read.alignedBases.splitAt(i + 1)
       val q = "%02d".format(read.baseQuality(i) - 33)
-      println(List.fill((read.position - first).toInt)(" ").foldLeft("")(_ + _) + bases._1 + "(" + q + ") " + bases._2)
+      List.fill((read.position - first).toInt)(" ").foldLeft("")(_ + _) + bases._1 + "(" + q + ") " + bases._2
     }
+    // Collect the results so they are printed on the local console.
+    out.collect.foreach(println(_))
+    
     println(List.fill((Examples.Cilantro - first).toInt)(" ").foldLeft("")(_ + _) + "^")
   }
 }
@@ -110,11 +110,12 @@ object SearchReadsExample1 {
  */
 object SearchReadsExample2 {
   def main(args: Array[String]) = {
-    val sc = new SparkContext(Examples.sparkMaster, this.getClass.getName, Examples.sparkPath, List(Examples.jarPath))
+    val conf = new Conf(args)
+    val sc = conf.newSparkContext(this.getClass.getName)
     val chr = "21"
     val len = Examples.HumanChromosomes(chr)
     val region = Map((chr -> (1L, len)))
-    val data = new ReadsRDD(sc, this.getClass.getName, Examples.secretsFile,
+    val data = new ReadsRDD(sc, this.getClass.getName, conf.clientSecrets(),
       List(Examples.Google_Example_Readset),
       new ReadsPartitioner(region, TargetSizeSplits(100, 5, 1024, 16 * 1024 * 1024)))
     val coverage = data.map(_._2.alignedBases.length.toLong)
@@ -128,10 +129,12 @@ object SearchReadsExample2 {
  */
 object SearchReadsExample3 {
   def main(args: Array[String]) = {
-    val sc = new SparkContext(Examples.sparkMaster, this.getClass.getName, Examples.sparkPath, List(Examples.jarPath))
+    val conf = new Conf(args)
+    val outPath = conf.outputPath()
+    val sc = conf.newSparkContext(this.getClass.getName)
     val chr = "21"
     val region = Map((chr -> (1L, Examples.HumanChromosomes(chr))))
-    val data = new ReadsRDD(sc, this.getClass.getName, Examples.secretsFile,
+    val data = new ReadsRDD(sc, this.getClass.getName, conf.clientSecrets(),
       List(Examples.Google_Example_Readset),
       new ReadsPartitioner(region, TargetSizeSplits(100, 5, 1024, 16 * 1024 * 1024)))
     data.flatMap { rk =>
@@ -144,7 +147,7 @@ object SearchReadsExample3 {
     }
       .reduceByKey(_ + _)
       .sortByKey(true) // optional, obviously
-      .saveAsTextFile(Examples.outputPath + "/coverage_" + chr)
+      .saveAsTextFile(outPath + "/coverage_" + chr)
   }
 }
 
@@ -155,7 +158,9 @@ object SearchReadsExample3 {
  */
 object SearchReadsExample4 {
   def main(args: Array[String]) = {
-    val sc = new SparkContext(Examples.sparkMaster, this.getClass.getName, Examples.sparkPath, List(Examples.jarPath))
+    val conf = new Conf(args)
+    val outPath = conf.outputPath()
+    val sc = conf.newSparkContext(this.getClass.getName)
     val chr = "1"
     val region = Map((chr -> (100000000L, 101000000L)))
     val minMappingQual = 30
@@ -195,7 +200,7 @@ object SearchReadsExample4 {
     //    (100091835,Map(G -> 0.7142857142857143, A -> 0.2, T -> 0.08571428571428572))
     //    (100091836,Map(G -> 0.08333333333333333, A -> 0.7222222222222222, T -> 0.19444444444444445))
     def freqRDD(readsets: List[String], partitioner: ReadsPartitioner) = {
-      new ReadsRDD(sc, this.getClass.getName, Examples.secretsFile, readsets, partitioner)
+      new ReadsRDD(sc, this.getClass.getName, conf.clientSecrets(), readsets, partitioner)
         .filter(rk => rk._2.mappingQuality >= minMappingQual)
         .flatMap { rk =>
           val (_, read) = rk
@@ -276,6 +281,18 @@ object SearchReadsExample4 {
     //    (100091835,(G,AG))
     //    (100091836,(A,AT))
     val diff = paired.filter(p => p._2._1 != p._2._2)
-    diff.sortByKey().saveAsTextFile(Examples.outputPath + "/diff_" + chr)
+    diff.sortByKey().saveAsTextFile(outPath + "/diff_" + chr)
   }
+}
+
+
+class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
+  val sparkMaster = opt[String](default=Some("local[2]"))
+  val sparkPath = opt[String](default=Some(""))
+  val outputPath = opt[String](default=Some("."))
+  val jarPath = opt[String](default=Some("target/scala-2.10/googlegenomics-spark-examples-assembly-1.0.jar"))
+  val clientSecrets = opt[String](default=Some("client_secrets.json"))
+  
+  def newSparkContext(className: String) = 
+    new SparkContext(this.sparkMaster(), className, this.sparkPath(), List(this.jarPath()))
 }
