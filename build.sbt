@@ -5,7 +5,7 @@ version := "1.0"
 scalaVersion := "2.10.3"
 
 val googleAPIVersion = "1.18.0-rc"
-val googleAPIGenomicsVersion = "v1beta-rev2-1.18.0-rc"
+val googleAPIGenomicsVersion = "v1beta-rev17-1.18.0-rc"
 
 val sparkVersion = "1.0.2"
 
