@@ -25,8 +25,6 @@ import com.google.cloud.genomics.spark.examples.rdd.{ VariantsRDD,
 import org.apache.log4j.{ Level, Logger }
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
-import org.rogach.scallop.ScallopOption
-import org.rogach.scallop.ScallopConf
 
 object VariantDatasets {
   final val Google_PGP_gVCF_Variants = "11785686915021445549"
@@ -51,6 +49,7 @@ object SearchVariantsExampleKlotho {
         conf.clientSecrets(),
         VariantDatasets.Google_PGP_gVCF_Variants,
         new VariantsPartitioner(klotho, FixedContigSplits(1)))
+    data.cache() // The amount of data is small since its just for one SNP
     println("We have " + data.count() + " records that overlap Klotho.")
     println("But only " + data.filter { vk =>
                                          val(_, v) = vk
@@ -60,12 +59,13 @@ object SearchVariantsExampleKlotho {
                                           val(_, v) = vk
                                           v.referenceBases == "N"
         }.count() + " records are reference-matching blocks.")
-    data.filter { vk =>
-          val(_, v) = vk
-          v.referenceBases != "N"
-          }.foreach { vk =>
-                      val (_, v) = vk
-                      println(v.contig + " " + v.position)
+    val variants = data.filter { vk =>
+                                 val(_, v) = vk
+                                 v.referenceBases != "N"
+    }
+    variants.collect.foreach { vk =>
+                               val (_, v) = vk
+                               println(v.contig + " " + v.position)
     }
   }
 }
@@ -86,6 +86,7 @@ object SearchVariantsExampleBRCA1 {
         conf.clientSecrets(),
         VariantDatasets.Google_PGP_gVCF_Variants,
         new VariantsPartitioner(brca1, FixedContigSplits(1)))
+    data.cache() // The amount of data is small since its just for one gene
     println("We have " + data.count() + " records that overlap BRCA1.")
     println("But only " + data.filter { vk =>
                                         val(_, v) = vk
