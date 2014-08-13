@@ -119,7 +119,7 @@ spark-class com.google.cloud.genomics.spark.examples.SearchReadsExample1 \
 The --jar-path will take care of copying the jar to all the workers before launching the tasks.
 
 
-### Debuging 
+### Debugging 
 To debug the jobs from the Spark web UI, either setup a SOCKS5 proxy 
 or open the web UI ports on your instances.
 
