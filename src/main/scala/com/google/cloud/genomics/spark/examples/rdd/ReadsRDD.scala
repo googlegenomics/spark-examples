@@ -15,14 +15,17 @@ limitations under the License.
 */
 package com.google.cloud.genomics.spark.examples.rdd
 
-import com.google.api.services.genomics.Genomics
-import com.google.api.services.genomics.model.{ Read => ReadModel, SearchReadsRequest, SearchReadsResponse }
-import com.google.cloud.genomics.Client
-import org.apache.spark.{ Logging, Partition, Partitioner, SparkContext, TaskContext }
-import org.apache.spark.SparkContext._
+import java.util.{List => JList}
+
+import scala.collection.JavaConversions.mapAsScalaMap
+
+import org.apache.spark.Partition
+import org.apache.spark.SparkContext
+import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
-import scala.collection.JavaConversions._
-import scala.collection.mutable.HashMap
+
+import com.google.api.services.genomics.model.{Read => ReadModel}
+import com.google.cloud.genomics.Client
 
 /**
  * A serializable version of the Read.
@@ -30,22 +33,33 @@ import scala.collection.mutable.HashMap
  * see https://code.google.com/p/google-api-java-client/issues/detail?id=390
  * for more information.
  */
-case class Read(model: Map[String, Any]) extends Serializable {
-  def alignedBases: String = model("alignedBases").asInstanceOf[String]
-  def baseQuality: String = model("baseQuality").asInstanceOf[String]
-  def cigar: String = model("cigar").asInstanceOf[String]
-  def flags: Int = model("flags").asInstanceOf[Int]
-  def id: String = model("id").asInstanceOf[String]
-  def mappingQuality: Int = model("mappingQuality").asInstanceOf[Int]
-  def matePosition: Int = model("matePosition").asInstanceOf[Int]
-  def mateReferenceSequenceName: String = model("mateReferenceSequenceName").asInstanceOf[String]
-  def name: String = model("name").asInstanceOf[String]
-  def originalBases: String = model("originalBases").asInstanceOf[String]
-  def position: Int = model("position").asInstanceOf[Int]
-  def readsetId: String = model("readsetId").asInstanceOf[String]
-  def referenceSequenceName: String = model("referenceSequenceName").asInstanceOf[String]
-  def tags: Map[String, List[String]] = model("tags").asInstanceOf[Map[String, List[String]]]
-  def templateLength: Int = model("templateLength").asInstanceOf[Int]
+case class Read(alignedBases: String, baseQuality: String, cigar: String,
+    flags: Int, id: String, mappingQuality: Int, matePosition: Int,
+    mateReferenceSequenceName: String, name: String, originalBases: String,
+    position: Int, readsetId: String, referenceSequenceName: String,
+    tags: Map[String, JList[String]], templateLength: Int) extends Serializable
+    
+object ReadBuilder {
+  def fromJavaRead(r: ReadModel) = {
+    val readKey = ReadKey(r.getReferenceSequenceName, r.getPosition.toLong)
+    
+    val read = Read(r.getAlignedBases, 
+        r.getBaseQuality, 
+        r.getCigar,
+        r.getFlags,
+        r.getId, 
+        r.getMappingQuality,
+        r.getMatePosition,
+        r.getMateReferenceSequenceName,
+        r.getName,
+        r.getOriginalBases,
+        r.getPosition,
+        r.getReadsetId,
+        r.getReferenceSequenceName,
+        r.getTags.toMap,
+        r.getTemplateLength)
+        (readKey, read)
+  }
 }
 
 /**
