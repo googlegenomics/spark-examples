@@ -46,14 +46,14 @@ case class Call(callsetId: String, callsetName: String, genotype: List[Integer],
 case class Variant(contig: String, id: String, names: Option[List[String]], 
     position: Long, end: Option[String], referenceBases: String, 
     alternateBases: Option[List[String]], info: Map[String, JList[String]], 
-    created: Long, datasetId: String, calls: Seq[Call]) extends Serializable
+    created: Long, datasetId: String, calls: Option[Seq[Call]]) extends Serializable
 
 object VariantBuilder {
   def fromJavaVariant(r: VariantModel) = {
     val variantKey = VariantKey(r.getContig, r.getPosition.toLong)
 
     val calls = if (r.containsKey("calls"))
-        r.getCalls().map(
+        Some(r.getCalls().map(
             c => Call(
                 c.getCallsetId, 
                 c.getCallsetName, 
@@ -63,9 +63,9 @@ object VariantBuilder {
                 else
                   None,
                 c.getPhaseset,
-                r.getInfo.toMap))
+                r.getInfo.toMap)))
       else
-	      null
+	      None
 
     val variant = Variant(
         r.getContig, 
@@ -77,12 +77,12 @@ object VariantBuilder {
         if (r.containsKey("end")) 
           Some(r.get("end").asInstanceOf[String]) 
         else 
-          null, 
+          None, 
         r.getReferenceBases,
         if (r.containsKey("alternateBases")) 
           Some(r.getAlternateBases.toList) 
         else 
-          null,
+          None,
         r.getInfo.toMap, 
         if (r.containsKey("created")) r.getCreated else 0L,
         r.getDatasetId,

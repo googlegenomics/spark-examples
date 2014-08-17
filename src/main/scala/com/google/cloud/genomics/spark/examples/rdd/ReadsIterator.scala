@@ -36,7 +36,7 @@ class ReadsIterator(service: Genomics, part: ReadsPartition) extends Iterator[(R
   // If the query data is exhausted (i.e. no more pages) the iterator will be empty.
   private def refresh(): Iterator[ReadModel] = {
     token.map { t =>
-      var req = new SearchReadsRequest()
+      val req = new SearchReadsRequest()
         .setReadsetIds(part.readsets)
         .setSequenceName(part.sequence)
         .setSequenceStart(java.math.BigInteger.valueOf(part.start))
@@ -71,22 +71,6 @@ class ReadsIterator(service: Genomics, part: ReadsPartition) extends Iterator[(R
 
   override def next(): (ReadKey, Read) = {
     val r = it.next()
-    (ReadKey(r.getReferenceSequenceName, r.getPosition.toLong),
-      Read(Map[String, Any](
-        ("alignedBases" -> r.getAlignedBases),
-        ("baseQuality" -> r.getBaseQuality),
-        ("cigar" -> r.getCigar),
-        ("flags" -> r.getFlags),
-        ("id" -> r.getId),
-        ("mappingQuality" -> r.getMappingQuality),
-        ("matePosition" -> r.getMatePosition),
-        ("mateReferenceSequenceName" -> r.getMateReferenceSequenceName),
-        ("name" -> r.getName),
-        ("originalBases" -> r.getOriginalBases),
-        ("position" -> r.getPosition),
-        ("readsetId" -> r.getReadsetId),
-        ("referenceSequenceName" -> r.getReferenceSequenceName),
-        ("tags" -> r.getTags.toMap),
-        ("templateLength" -> r.getTemplateLength))))
+    ReadBuilder.fromJavaRead(r)
   }
 }
