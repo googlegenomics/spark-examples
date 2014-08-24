@@ -25,9 +25,12 @@ import com.google.cloud.genomics.spark.examples.rdd.{ VariantsRDD,
 import org.apache.log4j.{ Level, Logger }
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
+import com.google.cloud.genomics.spark.examples.rdd.VariantKey
+import com.google.cloud.genomics.spark.examples.rdd.Variant
 
 object VariantDatasets {
-  final val Google_PGP_gVCF_Variants = "11785686915021445549"
+  final val Google_PGP_gVCF_Variants =   "11785686915021445549"
+  final val Google_1000_genomes_phase_1 = "1154144306496329440"
 }
 
 /**
@@ -38,10 +41,8 @@ object VariantDatasets {
  */
 object SearchVariantsExampleKlotho {
   def main(args: Array[String]) = {
-    val conf = new Conf(args)
-    val sc = new SparkContext(
-        conf.sparkMaster(), this.getClass.getName,
-        conf.sparkPath(), List(conf.jarPath()))
+    val conf = new GenomicsConf(args)
+    val sc = conf.newSparkContext(this.getClass.getName)
     Logger.getLogger("org").setLevel(Level.WARN)
     val klotho = Map(("13" -> (33628138L, 33628139L)))
     val data = new VariantsRDD(sc,
@@ -75,13 +76,14 @@ object SearchVariantsExampleKlotho {
  */
 object SearchVariantsExampleBRCA1 {
   def main(args: Array[String]) = {
-    val conf = new Conf(args)
-    val sc = new SparkContext(
-        conf.sparkMaster(), this.getClass.getName,
-        conf.sparkPath(), List(conf.jarPath()))
+    val conf = new GenomicsConf(args)
+    val sc = conf.newSparkContext(this.getClass.getName)
     Logger.getLogger("org").setLevel(Level.WARN)
     val brca1 = Map(("17" -> (41196312L, 41277500L)))
-    val data = new VariantsRDD(sc,
+    val data = if (conf.inputPath.isDefined)  
+      sc.objectFile[(VariantKey, Variant)](conf.inputPath())
+    else
+      new VariantsRDD(sc,
         this.getClass.getName,
         conf.clientSecrets(),
         VariantDatasets.Google_PGP_gVCF_Variants,

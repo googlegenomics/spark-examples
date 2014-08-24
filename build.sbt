@@ -20,6 +20,7 @@ libraryDependencies ++= Seq(
   "com.google.http-client" % "google-http-client" % googleAPIVersion,
   "com.google.http-client" % "google-http-client-jackson2" % googleAPIVersion,
   "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
+  "org.apache.spark" %% "spark-mllib" % sparkVersion % "provided",
   "org.rogach" %% "scallop" % "0.9.5"
 )
 
