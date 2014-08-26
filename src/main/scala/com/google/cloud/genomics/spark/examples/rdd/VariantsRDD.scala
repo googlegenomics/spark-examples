@@ -63,7 +63,7 @@ object VariantBuilder {
                 else
                   None,
                 c.getPhaseset,
-                r.getInfo.toMap)))
+                c.getInfo.toMap)))
       else
 	      None
 
