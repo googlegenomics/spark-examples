@@ -15,16 +15,21 @@ limitations under the License.
 */
 package com.google.cloud.genomics.spark.examples.rdd
 
-import com.google.api.services.genomics.Genomics
-import com.google.api.services.genomics.model.{ Variant => VariantModel,
-      Call => CallModel, SearchVariantsRequest, SearchVariantsResponse }
-import com.google.cloud.genomics.Client
-import org.apache.spark.{ Logging, Partition, Partitioner,
-      SparkContext, TaskContext }
-import org.apache.spark.SparkContext._
-import org.apache.spark.rdd.RDD
+import java.lang.{Double => JDouble}
+import java.util.{List => JList}
+
 import scala.collection.JavaConversions._
-import scala.collection.mutable.HashMap
+
+import org.apache.spark.Partition
+import org.apache.spark.SparkContext
+import org.apache.spark.SparkContext._
+import org.apache.spark.TaskContext
+import org.apache.spark.rdd.RDD
+
+import com.google.api.services.genomics.Genomics
+import com.google.api.services.genomics.model.{Call => CallModel}
+import com.google.api.services.genomics.model.{Variant => VariantModel}
+import com.google.cloud.genomics.Client
 
 /**
  * A serializable version of the Variant.
@@ -33,31 +38,57 @@ import scala.collection.mutable.HashMap
  * for more information.
  */
 
-// Convert from a Map to an Object
-case class Call(model: Map[String, Any]) extends Serializable {
-  def callsetName: String = model("callsetName").asInstanceOf[String]
-  def callsetId: String = model("callsetId").asInstanceOf[String]
-  def genotype: List[String] = model("genotype").asInstanceOf[List[String]]
-  def genotypeLikelihood: List[Double] =
-      model("genotypeLikelihood").asInstanceOf[List[Double]]
-  def phaseset: String = model("phaseset").asInstanceOf[String]
-  def info: Map[String, List[String]] =
-      model("info").asInstanceOf[Map[String, List[String]]]
-}
-case class Variant(model: Map[String, Any]) extends Serializable {
-  def contig: String = model("contig").asInstanceOf[String]
-  def id: String = model("id").asInstanceOf[String]
-  def names: List[String] = model("names").asInstanceOf[List[String]]
-  def position: Long = model("position").asInstanceOf[Long]
-  def end: Long = model("end").asInstanceOf[Long]
-  def referenceBases: String = model("referenceBases").asInstanceOf[String]
-  def alternateBases: List[String] =
-      model("alternateBases").asInstanceOf[List[String]]
-  def info: Map[String, List[String]] =
-      model("info").asInstanceOf[Map[String, List[String]]]
-  def created: Long = model("created").asInstanceOf[Long]
-  def datasetId: String = model("datasetId").asInstanceOf[String]
-  def calls: List[Call] = model("calls").asInstanceOf[List[Call]]
+case class Call(callsetId: String, callsetName: String, genotype: List[Integer], 
+    genotypeLikelihood: Option[List[JDouble]], phaseset: String, 
+    info: Map[String, JList[String]]) extends Serializable
+
+
+case class Variant(contig: String, id: String, names: Option[List[String]], 
+    position: Long, end: Option[String], referenceBases: String, 
+    alternateBases: Option[List[String]], info: Map[String, JList[String]], 
+    created: Long, datasetId: String, calls: Option[Seq[Call]]) extends Serializable
+
+object VariantBuilder {
+  def fromJavaVariant(r: VariantModel) = {
+    val variantKey = VariantKey(r.getContig, r.getPosition.toLong)
+
+    val calls = if (r.containsKey("calls"))
+        Some(r.getCalls().map(
+            c => Call(
+                c.getCallsetId, 
+                c.getCallsetName, 
+                c.getGenotype.toList,
+                if (c.containsKey("genotypeLikelihood"))
+                  Some(c.getGenotypeLikelihood.toList)
+                else
+                  None,
+                c.getPhaseset,
+                r.getInfo.toMap)))
+      else
+	      None
+
+    val variant = Variant(
+        r.getContig, 
+        r.getId, 
+        if (r.containsKey("names")) Some(r.getNames.toList) else null,
+        r.getPosition,
+        // Work around error 'value getEnd is not a member of
+        // com.google.api.services.genomics.model.Variant'  
+        if (r.containsKey("end")) 
+          Some(r.get("end").asInstanceOf[String]) 
+        else 
+          None, 
+        r.getReferenceBases,
+        if (r.containsKey("alternateBases")) 
+          Some(r.getAlternateBases.toList) 
+        else 
+          None,
+        r.getInfo.toMap, 
+        if (r.containsKey("created")) r.getCreated else 0L,
+        r.getDatasetId,
+        calls)
+    (variantKey, variant)
+  }
 }
 
 /**
@@ -92,11 +123,9 @@ case class VariantsPartition(override val index: Int,
                           val dataset: String,
                           val contig: String,
                           val start: Long,
-                          val end: Long) extends Partition {
-}
+                          val end: Long) extends Partition
 
 /**
  * Indexes a variant to its partition.
  */
-case class VariantKey(contig: String, position: Long) {
-}
+case class VariantKey(contig: String, position: Long)

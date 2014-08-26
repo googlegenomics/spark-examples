@@ -15,12 +15,12 @@ limitations under the License.
 */
 package com.google.cloud.genomics.spark.examples.rdd
 
-import collection.JavaConversions._
+import scala.collection.JavaConversions.asScalaIterator
+import scala.collection.JavaConversions.seqAsJavaList
 
 import com.google.api.services.genomics.Genomics
-import com.google.api.services.genomics.model.{ Variant => VariantModel,
-      SearchVariantsRequest }
-import org.apache.spark.{ Logging, Partition }
+import com.google.api.services.genomics.model.SearchVariantsRequest
+import com.google.api.services.genomics.model.{Variant => VariantModel}
 
 /**
  * Performs the search request and provides the resultant variants.
@@ -40,7 +40,7 @@ class VariantsIterator(service: Genomics, part: VariantsPartition)
   // will be empty.
   private def refresh(): Iterator[VariantModel] = {
     token.map { t =>
-      var req = new SearchVariantsRequest()
+      val req = new SearchVariantsRequest()
         .setDatasetId(part.dataset)
         .setContig(part.contig)
         .setStartPosition(java.lang.Long.valueOf(part.start))
@@ -75,48 +75,6 @@ class VariantsIterator(service: Genomics, part: VariantsPartition)
 
   override def next(): (VariantKey, Variant) = {
     val r = it.next()
-
-    val calls = { if (!r.containsKey("calls"))
-        null
-        else
-          for (c <- r.getCalls)
-            yield
-                Call(Map[String, Any](
-                    ("callsetId" -> c.getCallsetId),
-                    ("callsetName" -> c.getCallsetName),
-                    ("genotype" -> c.getGenotype.toList),
-                    ("genotypeLikelihood" -> {
-                      if (c.containsKey("genotypeLikelihood"))
-                        c.getGenotypeLikelihood.toList
-                        else
-                          null
-                              }),
-                    ("info" -> r.getInfo.toMap),
-                    ("phaseset" -> c.getPhaseset)))}
-
-    (VariantKey(r.getContig, r.getPosition.toLong),
-        Variant(Map[String, Any](
-            ("alternateBases" -> {
-              if (r.containsKey("alternateBases"))
-                r.getAlternateBases.toList
-                else null }),
-            ("calls" -> calls),
-            ("contig" -> r.getContig),
-            ("created" -> r.getCreated),
-            ("datasetId" -> r.getDatasetId),
-            ("end" -> {
-              if (r.containsKey("end"))
-                // Work around error 'value getEnd is not a member of
-                // com.google.api.services.genomics.model.Variant'
-                r.get("end")
-                else null}),
-            ("id" -> r.getId),
-            ("info" -> r.getInfo.toMap),
-            ("names" -> {
-              if (r.containsKey("names"))
-                r.getNames.toList
-                else null }),
-            ("position" -> r.getPosition),
-            ("referenceBases" -> r.getReferenceBases))))
+    VariantBuilder.fromJavaVariant(r)
   }
 }
