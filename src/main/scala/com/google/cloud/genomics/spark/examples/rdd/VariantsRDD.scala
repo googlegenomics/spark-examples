@@ -85,10 +85,45 @@ object VariantBuilder {
         else 
           None,
         r.getInfo.toMap, 
-        if (r.containsKey("created")) r.getCreated else 0L,
+        if (r.containsKey("created"))
+          r.getCreated
+        else
+          0L,
         r.getDatasetId,
         calls)
     (variantKey, variant)
+  }
+
+  def toJavaVariant(r: Variant) = {
+    val variant = new VariantModel()
+    .setContig(r.contig)
+    .setCreated(r.created)
+    .setDatasetId(r.datasetId)
+    .setId(r.id)
+    .setInfo(r.info)
+    .setPosition(r.position)
+    .setReferenceBases(r.referenceBases)
+
+    if (r.alternateBases isDefined) variant.setAlternateBases(r.alternateBases.get)
+    if (r.end isDefined) variant.setEnd(r.end.get.toLong)
+    if (r.names isDefined) variant.setNames(r.names.get)
+    if (r.calls isDefined) {
+      val calls = r.calls.get.map
+      { c =>
+        val call = new CallModel()
+        .setCallsetId(c.callsetId)
+        .setCallsetName(c.callsetName)
+        .setGenotype(c.genotype)
+        .setInfo(c.info)
+        .setPhaseset(c.phaseset)
+        if (c.genotypeLikelihood isDefined) call.setGenotypeLikelihood(c.genotypeLikelihood.get)
+
+        call
+      }
+      variant.setCalls(calls)
+    }
+
+    variant
   }
 }
 

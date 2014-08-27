@@ -19,8 +19,9 @@ import collection.JavaConversions._
 import collection.mutable.{ Map => MutableMap }
 import com.google.api.services.genomics.model.SearchVariantsRequest
 import com.google.cloud.genomics.Client
-import com.google.cloud.genomics.spark.examples.rdd.{ VariantRDD,
+import com.google.cloud.genomics.spark.examples.rdd.{ VariantBuilder,
                                                       VariantsPartitioner,
+                                                      VariantsRDD,
                                                       FixedContigSplits }
 import org.apache.log4j.{ Level, Logger }
 import org.apache.spark.SparkContext
@@ -67,6 +68,16 @@ object SearchVariantsExampleKlotho {
                                val (key, variant) = kv
                                println(variant.contig + " " + variant.position)
     }
+
+    // Exercise conversion from scala objects back to java objects.  This
+    // is needed for a forthcoming example which writes modified
+    // variants back to the variant store.
+    //
+    // TODO: this really belongs in an integration test or a unit test
+    // with a mocked-out Genomics client; not in this sample.
+    data.collect.foreach { kv =>
+                           val (key, variant) = kv
+                           VariantBuilder.toJavaVariant(variant) }
   }
 }
 
