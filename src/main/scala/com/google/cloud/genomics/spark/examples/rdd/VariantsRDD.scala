@@ -65,12 +65,15 @@ object VariantBuilder {
                 c.getPhaseset,
                 c.getInfo.toMap)))
       else
-	      None
+        None
 
     val variant = Variant(
         r.getContig, 
         r.getId, 
-        if (r.containsKey("names")) Some(r.getNames.toList) else null,
+        if (r.containsKey("names"))
+          Some(r.getNames.toList)
+        else
+          None,
         r.getPosition,
         if (r.containsKey("end")) 
           Some(r.getEnd)
