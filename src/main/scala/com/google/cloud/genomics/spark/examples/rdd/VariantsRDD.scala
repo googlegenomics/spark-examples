@@ -44,7 +44,7 @@ case class Call(callsetId: String, callsetName: String, genotype: List[Integer],
 
 
 case class Variant(contig: String, id: String, names: Option[List[String]], 
-    position: Long, end: Option[String], referenceBases: String, 
+    position: Long, end: Option[Long], referenceBases: String, 
     alternateBases: Option[List[String]], info: Map[String, JList[String]], 
     created: Long, datasetId: String, calls: Option[Seq[Call]]) extends Serializable
 
@@ -72,10 +72,8 @@ object VariantBuilder {
         r.getId, 
         if (r.containsKey("names")) Some(r.getNames.toList) else null,
         r.getPosition,
-        // Work around error 'value getEnd is not a member of
-        // com.google.api.services.genomics.model.Variant'  
         if (r.containsKey("end")) 
-          Some(r.get("end").asInstanceOf[String]) 
+          Some(r.getEnd)
         else 
           None, 
         r.getReferenceBases,
