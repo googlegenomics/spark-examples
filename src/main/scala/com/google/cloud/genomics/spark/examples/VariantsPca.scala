@@ -49,24 +49,22 @@ class VariantsRegistrator extends KryoRegistrator {
   }
 }
 
+/** 
+ * Saves the result of a variant search as an RDD of VariantCalls
+ */
 object VariantsSource {
   def main(args: Array[String]) = {
     val conf = new GenomicsConf(args)
     val sc = conf.newSparkContext(this.getClass.getName,
       Some("com.google.cloud.genomics.spark.examples.VariantsRegistrator"))
     Logger.getLogger("org").setLevel(Level.WARN)
-    val contigs = Map(
-      ("4" -> (619373L, 664571L)),
-      ("6" -> (133098746L, 133108745L)),
-      ("7" -> (114055378L, 114330012L)) //        ("13" -> (32315479L, 33728139L)),
-      //        ("17" -> (41196312L, 41277500L))
-      //        ("13" -> (33628138L, 33628150L))
-      )
+    val contigs = Map(("17" -> (41196312L, 41277500L)))
     val data = new VariantCallsRDD(sc,
       this.getClass.getName,
       conf.clientSecrets(),
       VariantDatasets.Google_1000_genomes_phase_1,
-      new VariantsPartitioner(contigs, FixedContigSplits(1)))
+      new VariantsPartitioner(contigs, 
+          FixedContigSplits(conf.partitionsPerContig())))
       .saveAsObjectFile(conf.outputPath())
   }
 }
@@ -75,7 +73,6 @@ object VariantsPcaDriver {
   def main(args: Array[String]) = {
     val conf = new PcaConf(args)
     val sc = conf.newSparkContext(this.getClass.getName)
-      //,Some("com.google.cloud.genomics.spark.examples.VariantsRegistrator"))
     Logger.getLogger("org").setLevel(Level.WARN)
     val out = conf.outputPath()
     if (!conf.nocomputeSimilarity()) {
@@ -83,8 +80,7 @@ object VariantsPcaDriver {
         println(conf.inputPath())
         sc.objectFile[(VariantKey, VariantCalls)](conf.inputPath())
       } else {
-        val contigs = Map(
-          ("13" -> (33628138L, 33628150L)))
+        val contigs = Map(("17" -> (41196312L, 41277500L)))
         new VariantCallsRDD(sc,
           this.getClass.getName,
           conf.clientSecrets(),
@@ -92,34 +88,20 @@ object VariantsPcaDriver {
           new VariantsPartitioner(contigs, FixedContigSplits(1)))
       }
       
-      //println(s"Variants ${data.count}") // Matrix size
       val logger = Logger.getLogger(this.getClass.getName)
-      val variants = data.map(kv => kv._2)
+      val samplesWithVariant = data.map(kv => kv._2)
         .map(_.calls.getOrElse(Seq()))
-        .map(calls => {
-          //print(s"<<${calls.size}: ")
-          val k = calls.filter(call => {
-            //print(s"${call.callsetName} @ ${call.genotype}, ")
-            call.genotype.map(_ > 0).reduce(_ || _)
-          }) // If any of the bases has at least 1 variation
-          // Keep only the variants that have more than 1 call
-          //println(s" :${k.size}>>")
-          k
-        }).filter(_.size > 1).cache
+        .map(calls => calls.filter(_.genotype.foldLeft(false)(_ || _ > 0)))
+        // Keep only the variants that have more than 1 call
+        .filter(_.size > 1).cache
         
-      //println(s"Variants with calls${variants.count}") // Matrix size
-      // Per variant calls
-      val callsets = variants.map(_.map(_.callsetName))
-      //callsets.foreach(println)
-      //val x = callsets.flatMap(item => item).distinct
-      //x.collect.sorted.foreach(println)
-      //println(s"C calls ${x.count}") // Matrix size
+      val callsets = samplesWithVariant.map(_.map(_.callsetName))
       val counts = callsets.flatMap(callset => callset.map((_, 1)))
         .reduceByKey(_ + _, 16).cache()
       counts.saveAsTextFile(s"${out}-counts.txt")
       val indexes = counts.map(_._1)
         .zipWithIndex()
-      indexes.saveAsTextFile(s"${out}-indexes.txt")
+      indexes.saveAsObjectFile(s"${out}-indexes.dat")
       val names = indexes.collectAsMap
       val broadcastNames = sc.broadcast(names)
       println(s"Distinct calls ${names.size}") // Matrix size
@@ -133,50 +115,36 @@ object VariantsPcaDriver {
   }
 
   def computeSimilarity(toIds: RDD[Seq[Int]], out: String) {
-    val similar = toIds.flatMap(callset => {
-      //println(s"CSet -> ${callset.size}")
-      // Keep track of when two calls have a variant on the same position.
-      for (c1 <- callset.iterator; c2 <- callset.iterator if c1 != c2)
+    // Keep track of how many calls shared the same variant
+    val similar = toIds.flatMap(callset => 
+      for (c1 <- callset.iterator; c2 <- callset.iterator)
         yield ((c1, c2), 1)
-    }).reduceByKey(_ + _, 16).cache()
+    ).reduceByKey(_ + _, 16).cache()
     similar.saveAsObjectFile(s"${out}-similar.dat")
-    //println(s"We have ${data.count()} variants in the search regions.")
-    //println(s"${variants.count()} have more than 1 call.")
   }
 
   def doPca(sc: SparkContext, out: String) {
     val similarFromFile =
       sc.objectFile[((Int, Int), Int)](s"${out}-similar.dat")
-      
-    //println(similarFromFile.count())
-    // Group calls by their row id 
+    val indexes =
+      sc.objectFile[(String, Long)](s"${out}-indexes.dat")
+      .map(item => (item._2, item._1)).collectAsMap
+    val rowCount = indexes.size()
     val indexedRows =
       similarFromFile.map(item => (item._1._1, item._1._2, item._2.toDouble))
-        .map(item => {
-          //          if (item._1 > item._2)
-          //            (item._2, (item._1, item._3))
-          //          else
-          //println((item._1, (item._2, item._3)))
-          (item._1, (item._2, item._3))
-         })
+        .map(item => (item._1, (item._2, item._3)))
         .groupByKey()
         .sortByKey(true)
-        .map(row => {
-          //println(s"${row._1}, ${row._2.size}")
-          row._2.map(_._2).toArray})
+        .map(row => row._2.toSeq)
     println(s"RC: ${indexedRows.count()}")
-    val rows = indexedRows.map(row => Vectors.dense({
-      //println(row.toList)
-      row}))
+    val rows = indexedRows.map(row => Vectors.sparse(rowCount, row))
     val matrix = new RowMatrix(rows)
     val pca = matrix.computePrincipalComponents(2)
-    //    println(s"RC: ${pca.numCols}:${pca.numRows}")
-    //    println(pca)
     val array = pca.toArray
-    for (i <- 0 until pca.numRows) {
-      println(s"${array(i)}\t${array(i + pca.numRows)}")
-    }
-    println(matrix.computeColumnSummaryStatistics.mean)
-    //indexedRows.collect.foreach(item => println(s"${item._1} => ${item._2.size}"))
+    val table = for (i <- 0 until pca.numRows) 
+      yield (indexes(i), array(i), array(i + pca.numRows))
+    
+    table.sortBy(_._1).foreach(tuple => 
+        println(s"${tuple._1}\t\t${tuple._2}\t${tuple._3}"))
   }
 }

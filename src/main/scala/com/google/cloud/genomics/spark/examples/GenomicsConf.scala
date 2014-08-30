@@ -24,6 +24,14 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
   val sparkMaster = opt[String](default = Some("local[2]"))
   val sparkPath = opt[String](default = Some(""))
   val outputPath = opt[String](default = Some("."))
+  val partitionsPerContig = opt[Int](default = Some(10), 
+      descr="How many partitions per contig. Set it to a " + 
+      "number greater than the number of cores, to achieve maximum " +
+      "throughput.")
+  val reducePartitions = opt[Int](default = Some(10), 
+      descr="Set it to a " + 
+      "number greater than the number of cores, to achieve maximum " +
+      "throughput.")
   val inputPath = opt[String]()
   val jarPath = opt[String]()
   val clientSecrets = opt[String](default = Some("client_secrets.json"))
@@ -42,6 +50,7 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
       conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
       conf.set("spark.kryo.registrator", registrator.get)
     }
+    conf.set("spark.shuffle.consolidateFiles", "true")
     new SparkContext(conf)
   }
 }
