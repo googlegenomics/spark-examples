@@ -44,7 +44,7 @@ case class Call(callsetId: String, callsetName: String, genotype: List[Integer],
 
 
 case class Variant(contig: String, id: String, names: Option[List[String]], 
-    position: Long, end: Option[String], referenceBases: String, 
+    position: Long, end: Option[Long], referenceBases: String, 
     alternateBases: Option[List[String]], info: Map[String, JList[String]], 
     created: Long, datasetId: String, calls: Option[Seq[Call]]) extends Serializable
 
@@ -63,19 +63,20 @@ object VariantBuilder {
                 else
                   None,
                 c.getPhaseset,
-                r.getInfo.toMap)))
+                c.getInfo.toMap)))
       else
-	      None
+        None
 
     val variant = Variant(
         r.getContig, 
         r.getId, 
-        if (r.containsKey("names")) Some(r.getNames.toList) else null,
+        if (r.containsKey("names"))
+          Some(r.getNames.toList)
+        else
+          None,
         r.getPosition,
-        // Work around error 'value getEnd is not a member of
-        // com.google.api.services.genomics.model.Variant'  
         if (r.containsKey("end")) 
-          Some(r.get("end").asInstanceOf[String]) 
+          Some(r.getEnd)
         else 
           None, 
         r.getReferenceBases,
@@ -84,10 +85,45 @@ object VariantBuilder {
         else 
           None,
         r.getInfo.toMap, 
-        if (r.containsKey("created")) r.getCreated else 0L,
+        if (r.containsKey("created"))
+          r.getCreated
+        else
+          0L,
         r.getDatasetId,
         calls)
     (variantKey, variant)
+  }
+
+  def toJavaVariant(r: Variant) = {
+    val variant = new VariantModel()
+    .setContig(r.contig)
+    .setCreated(r.created)
+    .setDatasetId(r.datasetId)
+    .setId(r.id)
+    .setInfo(r.info)
+    .setPosition(r.position)
+    .setReferenceBases(r.referenceBases)
+
+    if (r.alternateBases isDefined) variant.setAlternateBases(r.alternateBases.get)
+    if (r.end isDefined) variant.setEnd(r.end.get.toLong)
+    if (r.names isDefined) variant.setNames(r.names.get)
+    if (r.calls isDefined) {
+      val calls = r.calls.get.map
+      { c =>
+        val call = new CallModel()
+        .setCallsetId(c.callsetId)
+        .setCallsetName(c.callsetName)
+        .setGenotype(c.genotype)
+        .setInfo(c.info)
+        .setPhaseset(c.phaseset)
+        if (c.genotypeLikelihood isDefined) call.setGenotypeLikelihood(c.genotypeLikelihood.get)
+
+        call
+      }
+      variant.setCalls(calls)
+    }
+
+    variant
   }
 }
 
