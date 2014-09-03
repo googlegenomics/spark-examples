@@ -155,59 +155,6 @@ class VariantsRDD(sc: SparkContext,
   }
 }
 
-case class VariantCalls(calls: Option[Seq[Call]]) extends Serializable
-
-class VariantCallsRDDBuilder extends RowBuilder[VariantKey, VariantCalls] {
-  @Override
-  def build(r: VariantModel) = {
-    val variantKey = VariantKey(r.getContig, r.getPosition.toLong)
-
-    val calls = if (r.containsKey("calls"))
-        Some(r.getCalls().map(
-            c => Call(
-                c.getCallsetId, 
-                c.getCallsetName, 
-                c.getGenotype.toList,
-                if (c.containsKey("genotypeLikelihood"))
-                  Some(c.getGenotypeLikelihood.toList)
-                else
-                  None,
-                c.getPhaseset,
-                r.getInfo.toMap)))
-      else
-        None
-
-    val variant = VariantCalls(calls)
-    (variantKey, variant)
-  }
-}
-
-/**
- * A simple Spark RDD backed by Google Genomics VariantStore and
- * populated via the SearchVariants API call
- * (https://developers.google.com/genomics/v1beta/reference/variants/search).
- */
-class VariantCallsRDD(sc: SparkContext,
-    applicationName: String,
-    clientSecretsFile: String,
-    dataset: String,
-    variantsPartitioner: VariantsPartitioner)
-    extends RDD[(VariantKey, VariantCalls)](sc, Nil) {
-
-  override val partitioner = Some(variantsPartitioner)
-
-  override def getPartitions: Array[Partition] = {
-    variantsPartitioner.getPartitions(dataset)
-  }
-
-  override def compute(part: Partition, ctx: TaskContext):
-  Iterator[(VariantKey, VariantCalls)] = {
-    new VariantsIterator[VariantKey, VariantCalls](Client(applicationName,
-            clientSecretsFile).genomics, part.asInstanceOf[VariantsPartition], 
-            new VariantCallsRDDBuilder())
-  }
-}
-
 /**
  * Defines a search range over a contig.
  */
