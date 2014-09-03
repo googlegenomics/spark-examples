@@ -44,9 +44,42 @@ case class Call(callsetId: String, callsetName: String, genotype: List[Integer],
 
 
 case class Variant(contig: String, id: String, names: Option[List[String]], 
-    position: Long, end: Option[String], referenceBases: String, 
+    position: Long, end: Option[Long], referenceBases: String, 
     alternateBases: Option[List[String]], info: Map[String, JList[String]], 
-    created: Long, datasetId: String, calls: Option[Seq[Call]]) extends Serializable
+    created: Long, datasetId: String, calls: Option[Seq[Call]]) extends Serializable {
+    
+  def toJavaVariant() = {
+    val variant = new VariantModel()
+    .setContig(this.contig)
+    .setCreated(this.created)
+    .setDatasetId(this.datasetId)
+    .setId(this.id)
+    .setInfo(this.info)
+    .setPosition(this.position)
+    .setReferenceBases(this.referenceBases)
+
+    if (this.alternateBases isDefined) variant.setAlternateBases(this.alternateBases.get)
+    if (this.end isDefined) variant.setEnd(this.end.get.toLong)
+    if (this.names isDefined) variant.setNames(this.names.get)
+    if (this.calls isDefined) {
+      val calls = this.calls.get.map
+      { c =>
+        val call = new CallModel()
+        .setCallsetId(c.callsetId)
+        .setCallsetName(c.callsetName)
+        .setGenotype(c.genotype)
+        .setInfo(c.info)
+        .setPhaseset(c.phaseset)
+        if (c.genotypeLikelihood isDefined) call.setGenotypeLikelihood(c.genotypeLikelihood.get)
+
+        call
+      }
+      variant.setCalls(calls)
+    }
+
+    variant
+  }
+}
 
 class VariantsRDDBuilder extends RowBuilder[VariantKey, Variant] {
   @Override
@@ -64,19 +97,20 @@ class VariantsRDDBuilder extends RowBuilder[VariantKey, Variant] {
                 else
                   None,
                 c.getPhaseset,
-                r.getInfo.toMap)))
+                c.getInfo.toMap)))
       else
-	      None
+        None
 
     val variant = Variant(
         r.getContig, 
         r.getId, 
-        if (r.containsKey("names")) Some(r.getNames.toList) else null,
+        if (r.containsKey("names"))
+          Some(r.getNames.toList)
+        else
+          None,
         r.getPosition,
-        // Work around error 'value getEnd is not a member of
-        // com.google.api.services.genomics.model.Variant'  
         if (r.containsKey("end")) 
-          Some(r.get("end").asInstanceOf[String]) 
+          Some(r.getEnd)
         else 
           None, 
         r.getReferenceBases,
@@ -85,7 +119,10 @@ class VariantsRDDBuilder extends RowBuilder[VariantKey, Variant] {
         else 
           None,
         r.getInfo.toMap, 
-        if (r.containsKey("created")) r.getCreated else 0L,
+        if (r.containsKey("created"))
+          r.getCreated
+        else
+          0L,
         r.getDatasetId,
         calls)
     (variantKey, variant)
