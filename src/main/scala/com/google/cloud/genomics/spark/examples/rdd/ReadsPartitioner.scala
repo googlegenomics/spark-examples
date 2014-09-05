@@ -33,7 +33,7 @@ class ReadsPartitioner(sequences: Map[String, (Long, Long)],
   // Maps sequence name to starting parition.
   final val steps = parts.tail.scanLeft((parts.head._1, 0))((a, b) => (b._1, a._2 + b._2))
 
-  override def getPartition(key: Any): Int = {
+  def getPartition(key: Any): Int = {
     val rk = key.asInstanceOf[ReadKey]
     val seq = rk.sequence
     val len = {
@@ -43,7 +43,7 @@ class ReadsPartitioner(sequences: Map[String, (Long, Long)],
     (steps(seq) + ((parts(seq) - 1) / (len / rk.position))).toInt
   }
 
-  override def numPartitions: Int = count
+  def numPartitions: Int = count
 
   // Generates all partitions for all mapped reads in the sequence space.
   def getPartitions(readsets: List[String]): Array[Partition] = {

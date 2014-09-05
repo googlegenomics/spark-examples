@@ -46,10 +46,44 @@ case class Call(callsetId: String, callsetName: String, genotype: List[Integer],
 case class Variant(contig: String, id: String, names: Option[List[String]], 
     position: Long, end: Option[Long], referenceBases: String, 
     alternateBases: Option[List[String]], info: Map[String, JList[String]], 
-    created: Long, datasetId: String, calls: Option[Seq[Call]]) extends Serializable
+    created: Long, datasetId: String, calls: Option[Seq[Call]]) extends Serializable {
+    
+  def toJavaVariant() = {
+    val variant = new VariantModel()
+    .setContig(this.contig)
+    .setCreated(this.created)
+    .setDatasetId(this.datasetId)
+    .setId(this.id)
+    .setInfo(this.info)
+    .setPosition(this.position)
+    .setReferenceBases(this.referenceBases)
 
-object VariantBuilder {
-  def fromJavaVariant(r: VariantModel) = {
+    if (this.alternateBases isDefined) variant.setAlternateBases(this.alternateBases.get)
+    if (this.end isDefined) variant.setEnd(this.end.get.toLong)
+    if (this.names isDefined) variant.setNames(this.names.get)
+    if (this.calls isDefined) {
+      val calls = this.calls.get.map
+      { c =>
+        val call = new CallModel()
+        .setCallsetId(c.callsetId)
+        .setCallsetName(c.callsetName)
+        .setGenotype(c.genotype)
+        .setInfo(c.info)
+        .setPhaseset(c.phaseset)
+        if (c.genotypeLikelihood isDefined) call.setGenotypeLikelihood(c.genotypeLikelihood.get)
+
+        call
+      }
+      variant.setCalls(calls)
+    }
+
+    variant
+  }
+}
+
+class VariantsRDDBuilder extends RowBuilder[VariantKey, Variant] {
+  @Override
+  def build(r: VariantModel) = {
     val variantKey = VariantKey(r.getContig, r.getPosition.toLong)
 
     val calls = if (r.containsKey("calls"))
@@ -93,38 +127,6 @@ object VariantBuilder {
         calls)
     (variantKey, variant)
   }
-
-  def toJavaVariant(r: Variant) = {
-    val variant = new VariantModel()
-    .setContig(r.contig)
-    .setCreated(r.created)
-    .setDatasetId(r.datasetId)
-    .setId(r.id)
-    .setInfo(r.info)
-    .setPosition(r.position)
-    .setReferenceBases(r.referenceBases)
-
-    if (r.alternateBases isDefined) variant.setAlternateBases(r.alternateBases.get)
-    if (r.end isDefined) variant.setEnd(r.end.get.toLong)
-    if (r.names isDefined) variant.setNames(r.names.get)
-    if (r.calls isDefined) {
-      val calls = r.calls.get.map
-      { c =>
-        val call = new CallModel()
-        .setCallsetId(c.callsetId)
-        .setCallsetName(c.callsetName)
-        .setGenotype(c.genotype)
-        .setInfo(c.info)
-        .setPhaseset(c.phaseset)
-        if (c.genotypeLikelihood isDefined) call.setGenotypeLikelihood(c.genotypeLikelihood.get)
-
-        call
-      }
-      variant.setCalls(calls)
-    }
-
-    variant
-  }
 }
 
 /**
@@ -147,8 +149,9 @@ class VariantsRDD(sc: SparkContext,
 
   override def compute(part: Partition, ctx: TaskContext):
   Iterator[(VariantKey, Variant)] = {
-    new VariantsIterator(Client(applicationName,
-            clientSecretsFile).genomics, part.asInstanceOf[VariantsPartition])
+    new VariantsIterator[VariantKey, Variant](Client(applicationName,
+            clientSecretsFile).genomics, part.asInstanceOf[VariantsPartition], 
+            new VariantsRDDBuilder())
   }
 }
 
