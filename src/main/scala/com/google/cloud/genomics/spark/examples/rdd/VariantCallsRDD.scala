@@ -63,7 +63,7 @@ class VariantCallsRDD(sc: SparkContext,
     clientSecretsFile: String,
     dataset: String,
     variantsPartitioner: VariantsPartitioner, 
-    maxResults: String = "100")
+    maxResults: String = "50")
     extends RDD[(VariantKey, VariantCalls)](sc, Nil) {
 
   override val partitioner = Some(variantsPartitioner)

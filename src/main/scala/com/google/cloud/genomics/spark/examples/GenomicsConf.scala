@@ -25,16 +25,16 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
   val sparkPath = opt[String](default = Some(""))
   val outputPath = opt[String](default = Some("."))
   val contigs = opt[String](default=Some("17:41196312:41277500"),
-      descr="Coma separated tuples of contig:start:end,...")
+      descr = "Coma separated tuples of contig:start:end,...")
   val partitionsPerContig = opt[Int](default = Some(10), 
-      descr="How many partitions per contig. Set it to a " + 
+      descr = "How many partitions per contig. Set it to a " + 
       "number greater than the number of cores, to achieve maximum " +
       "throughput.")
   val reducePartitions = opt[Int](default = Some(10), 
-      descr="Set it to a " + 
+      descr = "Set it to a " + 
       "number greater than the number of cores, to achieve maximum " +
       "throughput.")
-  val maxResults = opt[String](default = Some("100"))
+  val maxResults = opt[String](default = Some("50"))
   val inputPath = opt[String]()
   val jarPath = opt[String]()
   val clientSecrets = opt[String](default = Some("client_secrets.json"))

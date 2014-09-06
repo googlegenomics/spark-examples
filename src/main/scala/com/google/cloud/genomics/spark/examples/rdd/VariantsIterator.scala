@@ -26,7 +26,7 @@ import java.math.BigInteger
  * Performs the search request and provides the resultant variants.
  */
 class VariantsIterator[K, V](service: Genomics, part: VariantsPartition,
-    builder: RowBuilder[K, V], maxResults: String = "100")
+    builder: RowBuilder[K, V], maxResults: String = "50")
     extends Iterator[(K, V)] {
   // The next page token for the query. If the results span multiple
   // pages, this will hold the next page token. If None, the search is
@@ -41,7 +41,6 @@ class VariantsIterator[K, V](service: Genomics, part: VariantsPartition,
   // will be empty.
   private def refresh(): Iterator[VariantModel] = {
     token.map { t =>
-      println(t)
       val req = new SearchVariantsRequest()
         .setVariantsetId(part.dataset)
         .setContig(part.contig)
