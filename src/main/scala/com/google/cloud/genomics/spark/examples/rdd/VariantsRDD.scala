@@ -52,7 +52,7 @@ case class Variant(contig: String, id: String, names: Option[List[String]],
     val variant = new VariantModel()
     .setContig(this.contig)
     .setCreated(this.created)
-    .setDatasetId(this.datasetId)
+    .setVariantsetId(this.datasetId)
     .setId(this.id)
     .setInfo(this.info)
     .setPosition(this.position)
@@ -123,7 +123,7 @@ class VariantsRDDBuilder extends RowBuilder[VariantKey, Variant] {
           r.getCreated
         else
           0L,
-        r.getDatasetId,
+        r.getVariantsetId,
         calls)
     (variantKey, variant)
   }
