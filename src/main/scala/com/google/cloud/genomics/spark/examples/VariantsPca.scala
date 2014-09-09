@@ -78,14 +78,13 @@ object VariantsPcaDriver {
     val out = conf.outputPath()
     if (!conf.nocomputeSimilarity()) {
       val data = if (conf.inputPath.isDefined) {
-        println(conf.inputPath())
         sc.objectFile[(VariantKey, VariantCalls)](conf.inputPath())
       } else {
         val contigs = conf.getContigs
         new VariantCallsRDD(sc,
           this.getClass.getName,
           conf.clientSecrets(),
-          VariantDatasets.Google_PGP_gVCF_Variants,
+          VariantDatasets.Google_1000_genomes_phase_1,
           new VariantsPartitioner(contigs, FixedContigSplits(1)))
       }
       
@@ -97,11 +96,8 @@ object VariantsPcaDriver {
         .filter(_.size > 1).cache
         
       val callsets = samplesWithVariant.map(_.map(_.callsetName))
-      val counts = callsets.flatMap(callset => callset.map((_, 1)))
-        .reduceByKey(_ + _, conf.reducePartitions()).cache()
-      counts.saveAsTextFile(s"${out}-counts.txt")
-      val indexes = counts.map(_._1)
-        .zipWithIndex()
+      val indexes = callsets.flatMap(callset => callset)
+        .distinct(conf.reducePartitions()).zipWithIndex()
       indexes.saveAsObjectFile(s"${out}-indexes.dat")
       val names = indexes.collectAsMap
       val broadcastNames = sc.broadcast(names)
@@ -112,7 +108,7 @@ object VariantsPcaDriver {
       }).cache()
       computeSimilarity(toIds, out, conf)
     }
-    doPca(sc, out)
+    doPca(sc, conf, out)
   }
 
   def computeSimilarity(toIds: RDD[Seq[Int]], out: String, conf: GenomicsConf) {
@@ -124,7 +120,7 @@ object VariantsPcaDriver {
     similar.saveAsObjectFile(s"${out}-similar.dat")
   }
 
-  def doPca(sc: SparkContext, out: String) {
+  def doPca(sc: SparkContext, conf: GenomicsConf, out: String) {
     val similarFromFile =
       sc.objectFile[((Int, Int), Int)](s"${out}-similar.dat")
     val indexes =
@@ -140,7 +136,7 @@ object VariantsPcaDriver {
     println(s"RC: ${indexedRows.count()}")
     val rows = indexedRows.map(row => Vectors.sparse(rowCount, row))
     val matrix = new RowMatrix(rows)
-    val pca = matrix.computePrincipalComponents(2)
+    val pca = matrix.computePrincipalComponents(conf.numPc())
     val array = pca.toArray
     val table = for (i <- 0 until pca.numRows) 
       yield (indexes(i), array(i), array(i + pca.numRows))
