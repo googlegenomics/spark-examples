@@ -20,8 +20,7 @@ import collection.JavaConversions._
 import org.apache.log4j.Level
 import org.apache.log4j.Logger
 import org.apache.spark.SparkContext
-import org.apache.spark.SparkContext.rddToOrderedRDDFunctions
-import org.apache.spark.SparkContext.rddToPairRDDFunctions
+import org.apache.spark.SparkContext._
 import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.mllib.linalg.distributed.RowMatrix
 import org.apache.spark.rdd.RDD
