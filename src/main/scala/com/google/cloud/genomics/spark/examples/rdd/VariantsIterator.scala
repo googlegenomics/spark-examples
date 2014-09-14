@@ -41,7 +41,7 @@ class VariantsIterator(service: Genomics, part: VariantsPartition)
   private def refresh(): Iterator[VariantModel] = {
     token.map { t =>
       val req = new SearchVariantsRequest()
-        .setDatasetId(part.dataset)
+        .setVariantsetId(part.dataset)
         .setContig(part.contig)
         .setStartPosition(java.lang.Long.valueOf(part.start))
         .setEndPosition(java.lang.Long.valueOf(part.end))
