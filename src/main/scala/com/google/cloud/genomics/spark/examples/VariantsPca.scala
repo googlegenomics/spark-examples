@@ -16,38 +16,22 @@ limitations under the License.
 package com.google.cloud.genomics.spark.examples
 
 import collection.JavaConversions._
-import com.google.cloud.genomics.spark.examples.rdd.VariantsRDD
-import com.google.cloud.genomics.spark.examples.rdd.VariantsPartitioner
-import com.google.cloud.genomics.spark.examples.rdd.FixedContigSplits
-import org.apache.log4j.Logger
+
 import org.apache.log4j.Level
-import org.apache.spark.SparkContext._
-import org.apache.spark.rdd.PairRDDFunctions
-import com.google.cloud.genomics.spark.examples.rdd.VariantKey
-import com.google.cloud.genomics.spark.examples.rdd.Variant
-import org.apache.spark.rdd.RDD
-import org.apache.spark.mllib.linalg.Matrix
-import org.apache.spark.mllib.linalg.distributed.RowMatrix
-import org.apache.spark.mllib.linalg.Vectors
-import org.apache.spark.mllib.linalg.distributed.IndexedRow
-import org.apache.spark.mllib.linalg.distributed.IndexedRowMatrix
-import com.google.cloud.genomics.spark.examples.rdd.VariantCallsRDD
-import com.google.cloud.genomics.spark.examples.rdd.VariantCalls
-import com.esotericsoftware.kryo.Kryo
-import org.apache.spark.serializer.KryoRegistrator
-import com.google.cloud.genomics.spark.examples.rdd.Call
+import org.apache.log4j.Logger
 import org.apache.spark.SparkContext
+import org.apache.spark.SparkContext.rddToOrderedRDDFunctions
+import org.apache.spark.SparkContext.rddToPairRDDFunctions
+import org.apache.spark.mllib.linalg.Vectors
+import org.apache.spark.mllib.linalg.distributed.RowMatrix
+import org.apache.spark.rdd.RDD
 
-class VariantsPca {
+import com.google.cloud.genomics.spark.examples.rdd.FixedContigSplits
+import com.google.cloud.genomics.spark.examples.rdd.VariantCalls
+import com.google.cloud.genomics.spark.examples.rdd.VariantCallsRDD
+import com.google.cloud.genomics.spark.examples.rdd.VariantKey
+import com.google.cloud.genomics.spark.examples.rdd.VariantsPartitioner
 
-}
-
-class VariantsRegistrator extends KryoRegistrator {
-  override def registerClasses(kryo: Kryo) {
-    kryo.register(classOf[VariantCalls])
-    kryo.register(classOf[Call])
-  }
-}
 
 /** 
  * Saves the result of a variant search as an RDD of VariantCalls
@@ -55,8 +39,7 @@ class VariantsRegistrator extends KryoRegistrator {
 object VariantsSource {
   def main(args: Array[String]) = {
     val conf = new GenomicsConf(args)
-    val sc = conf.newSparkContext(this.getClass.getName,
-      Some("com.google.cloud.genomics.spark.examples.VariantsRegistrator"))
+    val sc = conf.newSparkContext(this.getClass.getName)
     Logger.getLogger("org").setLevel(Level.WARN)
     val contigs = conf.getContigs
     val data = new VariantCallsRDD(sc,
@@ -101,7 +84,7 @@ object VariantsPcaDriver {
       indexes.saveAsObjectFile(s"${out}-indexes.dat")
       val names = indexes.collectAsMap
       val broadcastNames = sc.broadcast(names)
-      println(s"Distinct calls ${names.size}") // Matrix size
+      println(s"Distinct calls ${names.size}") // #rows
       val toIds = callsets.map(callset => {
         val mapping = broadcastNames.value
         callset.map(mapping(_).toInt)
@@ -109,11 +92,13 @@ object VariantsPcaDriver {
       computeSimilarity(toIds, out, conf)
     }
     doPca(sc, conf, out)
+    sc.stop
   }
 
   def computeSimilarity(toIds: RDD[Seq[Int]], out: String, conf: GenomicsConf) {
     // Keep track of how many calls shared the same variant
     val similar = toIds.flatMap(callset => 
+      // Emit only half of the counts
       for (c1 <- callset.iterator; c2 <- callset.iterator if c1 <= c2)
         yield ((c1, c2), 1)
     ).reduceByKey(_ + _, conf.reducePartitions()).cache()
@@ -141,9 +126,9 @@ object VariantsPcaDriver {
         .groupByKey()
         .sortByKey(true)
         .cache
-    val rowSums = entries.map(_._2.foldLeft(0D)((a,b)=>a+b._2)).collect
+    val rowSums = entries.map(_._2.foldLeft(0D)(_ + _._2)).collect
     val broadcastRowSums = sc.broadcast(rowSums)
-    val matrixSum = rowSums.reduce(_+_)
+    val matrixSum = rowSums.reduce(_ + _)
     val matrixMean = matrixSum / rowCount / rowCount;
     val centeredRows = entries.map(indexedRow => {
         val localRowSums = broadcastRowSums.value

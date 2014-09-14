@@ -79,6 +79,7 @@ object SearchVariantsExampleKlotho {
     data.collect.foreach { kv =>
                            val (key, variant) = kv
                            variant.toJavaVariant() }
+    sc.stop
   }
 }
 
@@ -109,5 +110,6 @@ object SearchVariantsExampleBRCA1 {
                                          val(key, variant) = kv
                                          variant.referenceBases == "N"
       }.count() + " records are reference-matching blocks.")
+    sc.stop
   }
 }
