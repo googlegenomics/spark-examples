@@ -59,6 +59,8 @@ object Client {
         override def initialize(httpRequest: HttpRequest) = {
           credential.initialize(httpRequest)
           httpRequest.setReadTimeout(60000)
+          httpRequest.getHeaders().setUserAgent("spark-examples")
+          httpRequest.getHeaders().setAcceptEncoding("gzip")
         }
       }).build()
 

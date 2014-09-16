@@ -17,16 +17,17 @@ package com.google.cloud.genomics.spark.examples.rdd
 
 import scala.collection.JavaConversions.asScalaIterator
 import scala.collection.JavaConversions.seqAsJavaList
-
 import com.google.api.services.genomics.Genomics
 import com.google.api.services.genomics.model.SearchVariantsRequest
 import com.google.api.services.genomics.model.{Variant => VariantModel}
+import java.math.BigInteger
 
 /**
  * Performs the search request and provides the resultant variants.
  */
-class VariantsIterator(service: Genomics, part: VariantsPartition)
-    extends Iterator[(VariantKey, Variant)] {
+class VariantsIterator[K, V](service: Genomics, part: VariantsPartition,
+    builder: RowBuilder[K, V], maxResults: String = "50")
+    extends Iterator[(K, V)] {
   // The next page token for the query. If the results span multiple
   // pages, this will hold the next page token. If None, the search is
   // exhausted and so this iterator.
@@ -43,6 +44,7 @@ class VariantsIterator(service: Genomics, part: VariantsPartition)
       val req = new SearchVariantsRequest()
         .setVariantsetId(part.dataset)
         .setContig(part.contig)
+        .setMaxResults(new BigInteger(maxResults))
         .setStartPosition(java.lang.Long.valueOf(part.start))
         .setEndPosition(java.lang.Long.valueOf(part.end))
 
@@ -73,8 +75,13 @@ class VariantsIterator(service: Genomics, part: VariantsPartition)
     }
   }
 
-  override def next(): (VariantKey, Variant) = {
+  override def next(): (K, V) = {
     val r = it.next()
-    VariantBuilder.fromJavaVariant(r)
+    builder.build(r)
   }
 }
+
+trait RowBuilder[K,V] {
+  def build(model: VariantModel): (K, V) 
+}
+

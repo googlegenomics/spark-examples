@@ -23,8 +23,6 @@ import com.google.cloud.genomics.spark.examples.rdd.{ ReadsRDD, ReadsPartitioner
 import org.apache.log4j.{ Level, Logger }
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
-import org.rogach.scallop.ScallopOption
-import org.rogach.scallop.ScallopConf
 
 object Examples {
 
@@ -74,7 +72,7 @@ object Examples {
  */
 object SearchReadsExample1 {
   def main(args: Array[String]) = {
-    val conf = new Conf(args)
+    val conf = new GenomicsConf(args)
     val sc = conf.newSparkContext(this.getClass.getName)
     Logger.getLogger("org").setLevel(Level.WARN)
     val region = Map(("11" -> (Examples.Cilantro - 1000, Examples.Cilantro + 1000)))
@@ -85,7 +83,7 @@ object SearchReadsExample1 {
         val (_, read) = rk
         read.position <= Examples.Cilantro && read.position + read.alignedBases.length >= Examples.Cilantro
       }.cache()
-    var first = data.collect.foldLeft(999999999L) { (a, b) =>
+    val first = data.collect.foldLeft(999999999L) { (a, b) =>
       val (_, read) = b
       val p = read.position
       if (p < a) { p.toLong } else { a }
@@ -102,6 +100,7 @@ object SearchReadsExample1 {
     out.collect.foreach(println(_))
     
     println(List.fill((Examples.Cilantro - first).toInt)(" ").foldLeft("")(_ + _) + "^")
+    sc.stop
   }
 }
 
@@ -110,7 +109,7 @@ object SearchReadsExample1 {
  */
 object SearchReadsExample2 {
   def main(args: Array[String]) = {
-    val conf = new Conf(args)
+    val conf = new GenomicsConf(args)
     val sc = conf.newSparkContext(this.getClass.getName)
     val chr = "21"
     val len = Examples.HumanChromosomes(chr)
@@ -121,6 +120,7 @@ object SearchReadsExample2 {
     val coverage = data.map(_._2.alignedBases.length.toLong)
       .reduce(_ + _).toDouble / len.toDouble
     println("Coverage of chromosome " + chr + " = " + coverage)
+    sc.stop
   }
 }
 
@@ -129,7 +129,7 @@ object SearchReadsExample2 {
  */
 object SearchReadsExample3 {
   def main(args: Array[String]) = {
-    val conf = new Conf(args)
+    val conf = new GenomicsConf(args)
     val outPath = conf.outputPath()
     val sc = conf.newSparkContext(this.getClass.getName)
     val chr = "21"
@@ -148,6 +148,7 @@ object SearchReadsExample3 {
       .reduceByKey(_ + _)
       .sortByKey(true) // optional, obviously
       .saveAsTextFile(outPath + "/coverage_" + chr)
+    sc.stop
   }
 }
 
@@ -158,7 +159,7 @@ object SearchReadsExample3 {
  */
 object SearchReadsExample4 {
   def main(args: Array[String]) = {
-    val conf = new Conf(args)
+    val conf = new GenomicsConf(args)
     val outPath = conf.outputPath()
     val sc = conf.newSparkContext(this.getClass.getName)
     val chr = "1"
@@ -214,8 +215,9 @@ object SearchReadsExample4 {
         }
         .groupByKey()
         .mapValues { v =>
-          val total = v.length.toDouble
-          v.groupBy(c => c)
+          val vSeq = v.toSeq
+          val total = vSeq.length.toDouble
+          vSeq.groupBy(c => c)
             .map(p => (p._1, p._2.length))
             .map(p => (p._1, p._2.toDouble / total))
         }
@@ -282,17 +284,6 @@ object SearchReadsExample4 {
     //    (100091836,(A,AT))
     val diff = paired.filter(p => p._2._1 != p._2._2)
     diff.sortByKey().saveAsTextFile(outPath + "/diff_" + chr)
+    sc.stop
   }
-}
-
-
-class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
-  val sparkMaster = opt[String](default=Some("local[2]"))
-  val sparkPath = opt[String](default=Some(""))
-  val outputPath = opt[String](default=Some("."))
-  val jarPath = opt[String](default=Some("target/scala-2.10/googlegenomics-spark-examples-assembly-1.0.jar"))
-  val clientSecrets = opt[String](default=Some("client_secrets.json"))
-  
-  def newSparkContext(className: String) = 
-    new SparkContext(this.sparkMaster(), className, this.sparkPath(), List(this.jarPath()))
 }
