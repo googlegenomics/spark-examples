@@ -23,7 +23,7 @@ import org.apache.spark.SparkConf
 class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
   val sparkMaster = opt[String](default = Some("local[2]"))
   val sparkPath = opt[String](default = Some(""))
-  val outputPath = opt[String](default = Some("."))
+  val outputPath = opt[String](default = Some("out"))
   val contigs = opt[String](default=Some("17:41196312:41277500"),
       descr = "Comma separated tuples of contig:start:end,...")
   val partitionsPerContig = opt[Int](default = Some(10), 

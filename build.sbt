@@ -2,7 +2,7 @@ name := "googlegenomics-spark-examples"
 
 version := "1.0"
 
-scalaVersion := "2.10.3"
+scalaVersion := "2.10.4"
 
 val googleAPIVersion = "1.19.0"
 val googleAPIGenomicsVersion = "v1beta-rev29-1.19.0"

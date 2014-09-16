@@ -100,6 +100,7 @@ object SearchReadsExample1 {
     out.collect.foreach(println(_))
     
     println(List.fill((Examples.Cilantro - first).toInt)(" ").foldLeft("")(_ + _) + "^")
+    sc.stop
   }
 }
 
@@ -119,6 +120,7 @@ object SearchReadsExample2 {
     val coverage = data.map(_._2.alignedBases.length.toLong)
       .reduce(_ + _).toDouble / len.toDouble
     println("Coverage of chromosome " + chr + " = " + coverage)
+    sc.stop
   }
 }
 
@@ -146,6 +148,7 @@ object SearchReadsExample3 {
       .reduceByKey(_ + _)
       .sortByKey(true) // optional, obviously
       .saveAsTextFile(outPath + "/coverage_" + chr)
+    sc.stop
   }
 }
 
@@ -281,5 +284,6 @@ object SearchReadsExample4 {
     //    (100091836,(A,AT))
     val diff = paired.filter(p => p._2._1 != p._2._2)
     diff.sortByKey().saveAsTextFile(outPath + "/diff_" + chr)
+    sc.stop
   }
 }

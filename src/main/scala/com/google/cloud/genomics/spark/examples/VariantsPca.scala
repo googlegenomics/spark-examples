@@ -16,38 +16,21 @@ limitations under the License.
 package com.google.cloud.genomics.spark.examples
 
 import collection.JavaConversions._
-import com.google.cloud.genomics.spark.examples.rdd.VariantsRDD
-import com.google.cloud.genomics.spark.examples.rdd.VariantsPartitioner
-import com.google.cloud.genomics.spark.examples.rdd.FixedContigSplits
-import org.apache.log4j.Logger
+
 import org.apache.log4j.Level
-import org.apache.spark.SparkContext._
-import org.apache.spark.rdd.PairRDDFunctions
-import com.google.cloud.genomics.spark.examples.rdd.VariantKey
-import com.google.cloud.genomics.spark.examples.rdd.Variant
-import org.apache.spark.rdd.RDD
-import org.apache.spark.mllib.linalg.Matrix
-import org.apache.spark.mllib.linalg.distributed.RowMatrix
-import org.apache.spark.mllib.linalg.Vectors
-import org.apache.spark.mllib.linalg.distributed.IndexedRow
-import org.apache.spark.mllib.linalg.distributed.IndexedRowMatrix
-import com.google.cloud.genomics.spark.examples.rdd.VariantCallsRDD
-import com.google.cloud.genomics.spark.examples.rdd.VariantCalls
-import com.esotericsoftware.kryo.Kryo
-import org.apache.spark.serializer.KryoRegistrator
-import com.google.cloud.genomics.spark.examples.rdd.Call
+import org.apache.log4j.Logger
 import org.apache.spark.SparkContext
+import org.apache.spark.SparkContext._
+import org.apache.spark.mllib.linalg.Vectors
+import org.apache.spark.mllib.linalg.distributed.RowMatrix
+import org.apache.spark.rdd.RDD
 
-class VariantsPca {
+import com.google.cloud.genomics.spark.examples.rdd.FixedContigSplits
+import com.google.cloud.genomics.spark.examples.rdd.VariantCalls
+import com.google.cloud.genomics.spark.examples.rdd.VariantCallsRDD
+import com.google.cloud.genomics.spark.examples.rdd.VariantKey
+import com.google.cloud.genomics.spark.examples.rdd.VariantsPartitioner
 
-}
-
-class VariantsRegistrator extends KryoRegistrator {
-  override def registerClasses(kryo: Kryo) {
-    kryo.register(classOf[VariantCalls])
-    kryo.register(classOf[Call])
-  }
-}
 
 /** 
  * Saves the result of a variant search as an RDD of VariantCalls
@@ -55,8 +38,7 @@ class VariantsRegistrator extends KryoRegistrator {
 object VariantsSource {
   def main(args: Array[String]) = {
     val conf = new GenomicsConf(args)
-    val sc = conf.newSparkContext(this.getClass.getName,
-      Some("com.google.cloud.genomics.spark.examples.VariantsRegistrator"))
+    val sc = conf.newSparkContext(this.getClass.getName)
     Logger.getLogger("org").setLevel(Level.WARN)
     val contigs = conf.getContigs
     val data = new VariantCallsRDD(sc,
@@ -101,7 +83,7 @@ object VariantsPcaDriver {
       indexes.saveAsObjectFile(s"${out}-indexes.dat")
       val names = indexes.collectAsMap
       val broadcastNames = sc.broadcast(names)
-      println(s"Distinct calls ${names.size}") // Matrix size
+      println(s"Distinct calls ${names.size}") // #rows
       val toIds = callsets.map(callset => {
         val mapping = broadcastNames.value
         callset.map(mapping(_).toInt)
@@ -109,12 +91,14 @@ object VariantsPcaDriver {
       computeSimilarity(toIds, out, conf)
     }
     doPca(sc, conf, out)
+    sc.stop
   }
 
   def computeSimilarity(toIds: RDD[Seq[Int]], out: String, conf: GenomicsConf) {
     // Keep track of how many calls shared the same variant
     val similar = toIds.flatMap(callset => 
-      for (c1 <- callset.iterator; c2 <- callset.iterator)
+      // Emit only half of the counts
+      for (c1 <- callset.iterator; c2 <- callset.iterator if c1 <= c2)
         yield ((c1, c2), 1)
     ).reduceByKey(_ + _, conf.reducePartitions()).cache()
     similar.saveAsObjectFile(s"${out}-similar.dat")
@@ -127,14 +111,37 @@ object VariantsPcaDriver {
       sc.objectFile[(String, Long)](s"${out}-indexes.dat")
       .map(item => (item._2, item._1)).collectAsMap
     val rowCount = indexes.size()
-    val indexedRows =
+    val entries =
       similarFromFile.map(item => (item._1._1, item._1._2, item._2.toDouble))
+        .flatMap(item => {
+          // Rebuild the symmetric matrix
+           if (item._1 < item._2) {
+             Seq(item, (item._2, item._1, item._3))
+           } else {
+             Seq(item)
+           }
+         })
         .map(item => (item._1, (item._2, item._3)))
         .groupByKey()
         .sortByKey(true)
-        .map(row => row._2.toSeq)
-    println(s"RC: ${indexedRows.count()}")
-    val rows = indexedRows.map(row => Vectors.sparse(rowCount, row))
+        .cache
+    val rowSums = entries.map(_._2.foldLeft(0D)(_ + _._2)).collect
+    val broadcastRowSums = sc.broadcast(rowSums)
+    val matrixSum = rowSums.reduce(_ + _)
+    val matrixMean = matrixSum / rowCount / rowCount;
+    val centeredRows = entries.map(indexedRow => {
+        val localRowSums = broadcastRowSums.value
+        val i = indexedRow._1
+        val row = indexedRow._2
+        val rowMean = localRowSums(i) / rowCount;
+        row.map(entry => {
+          val j = entry._1
+          val data = entry._2
+          val colMean = localRowSums(j) / rowCount;
+          (j, data - rowMean - colMean + matrixMean)
+        }).toSeq
+    })
+    val rows = centeredRows.map(row => Vectors.sparse(rowCount, row))
     val matrix = new RowMatrix(rows)
     val pca = matrix.computePrincipalComponents(conf.numPc())
     val array = pca.toArray
