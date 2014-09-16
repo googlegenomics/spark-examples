@@ -89,7 +89,7 @@ object VariantBuilder {
           r.getCreated
         else
           0L,
-        r.getDatasetId,
+        r.getVariantsetId,
         calls)
     (variantKey, variant)
   }
@@ -98,7 +98,7 @@ object VariantBuilder {
     val variant = new VariantModel()
     .setContig(r.contig)
     .setCreated(r.created)
-    .setDatasetId(r.datasetId)
+    .setVariantsetId(r.datasetId)
     .setId(r.id)
     .setInfo(r.info)
     .setPosition(r.position)
