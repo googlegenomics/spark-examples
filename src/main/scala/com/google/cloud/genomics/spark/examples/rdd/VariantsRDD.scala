@@ -50,12 +50,12 @@ case class Variant(contig: String, id: String, names: Option[List[String]],
     
   def toJavaVariant() = {
     val variant = new VariantModel()
-    .setContig(this.contig)
+    .setReferenceName(this.contig)
     .setCreated(this.created)
-    .setVariantsetId(this.datasetId)
+    .setVariantSetId(this.datasetId)
     .setId(this.id)
     .setInfo(this.info)
-    .setPosition(this.position)
+    .setStart(this.position)
     .setReferenceBases(this.referenceBases)
 
     if (this.alternateBases isDefined) variant.setAlternateBases(this.alternateBases.get)
@@ -65,8 +65,8 @@ case class Variant(contig: String, id: String, names: Option[List[String]],
       val calls = this.calls.get.map
       { c =>
         val call = new CallModel()
-        .setCallsetId(c.callsetId)
-        .setCallsetName(c.callsetName)
+        .setCallSetId(c.callsetId)
+        .setCallSetName(c.callsetName)
         .setGenotype(c.genotype)
         .setInfo(c.info)
         .setPhaseset(c.phaseset)
@@ -84,13 +84,13 @@ case class Variant(contig: String, id: String, names: Option[List[String]],
 class VariantsRDDBuilder extends RowBuilder[VariantKey, Variant] {
   @Override
   def build(r: VariantModel) = {
-    val variantKey = VariantKey(r.getContig, r.getPosition.toLong)
+    val variantKey = VariantKey(r.getReferenceName, r.getStart)
 
     val calls = if (r.containsKey("calls"))
         Some(r.getCalls().map(
             c => Call(
-                c.getCallsetId, 
-                c.getCallsetName, 
+                c.getCallSetId, 
+                c.getCallSetName, 
                 c.getGenotype.toList,
                 if (c.containsKey("genotypeLikelihood"))
                   Some(c.getGenotypeLikelihood.toList)
@@ -102,13 +102,13 @@ class VariantsRDDBuilder extends RowBuilder[VariantKey, Variant] {
         None
 
     val variant = Variant(
-        r.getContig, 
+        r.getReferenceName, 
         r.getId, 
         if (r.containsKey("names"))
           Some(r.getNames.toList)
         else
           None,
-        r.getPosition,
+        r.getStart,
         if (r.containsKey("end")) 
           Some(r.getEnd)
         else 
@@ -123,7 +123,7 @@ class VariantsRDDBuilder extends RowBuilder[VariantKey, Variant] {
           r.getCreated
         else
           0L,
-        r.getVariantsetId,
+        r.getVariantSetId,
         calls)
     (variantKey, variant)
   }

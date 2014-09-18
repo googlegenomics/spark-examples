@@ -37,13 +37,13 @@ case class VariantCalls(calls: Option[Seq[AbrevCall]]) extends Serializable
 class VariantCallsRDDBuilder extends RowBuilder[VariantKey, VariantCalls] {
   @Override
   def build(r: VariantModel) = {
-    val variantKey = VariantKey(r.getContig, r.getPosition.toLong)
+    val variantKey = VariantKey(r.getReferenceName(), r.getStart.toLong)
 
     val calls = if (r.containsKey("calls"))
         Some(r.getCalls().map(
             c => AbrevCall(
-                c.getCallsetId, 
-                c.getCallsetName, 
+                c.getCallSetId, 
+                c.getCallSetName, 
                 c.getGenotype.toList)))
       else
         None
@@ -63,7 +63,7 @@ class VariantCallsRDD(sc: SparkContext,
     clientSecretsFile: String,
     dataset: String,
     variantsPartitioner: VariantsPartitioner, 
-    maxResults: String = "50")
+    maxResults: Int = 50)
     extends RDD[(VariantKey, VariantCalls)](sc, Nil) {
 
   override val partitioner = Some(variantsPartitioner)
