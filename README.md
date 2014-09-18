@@ -90,8 +90,10 @@ Upload the following files to provide the workers with appropriate credentials.
 
 ```
 gcutil push --ssh_user=hadoop hs-ghfs-nn ~/.store client_secrets.json .
-gcutil push --ssh_user=hadoop hs-ghfs-dn-1 ~/.store client_secrets.json .
-gcutil push --ssh_user=hadoop hs-ghfs-dn-0 ~/.store client_secrets.json .
+
+for i in {0..1}; do 
+ gcutil push --ssh_user=hadoop hs-ghfs-dn-$i ~/.store client_secrets.json .; 
+done
 ```
 (This step assumes thad you already ran the example locally and generated the credentials.)
 

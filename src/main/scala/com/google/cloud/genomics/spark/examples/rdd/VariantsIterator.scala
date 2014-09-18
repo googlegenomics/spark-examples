@@ -17,16 +17,16 @@ package com.google.cloud.genomics.spark.examples.rdd
 
 import scala.collection.JavaConversions.asScalaIterator
 import scala.collection.JavaConversions.seqAsJavaList
+
 import com.google.api.services.genomics.Genomics
 import com.google.api.services.genomics.model.SearchVariantsRequest
 import com.google.api.services.genomics.model.{Variant => VariantModel}
-import java.math.BigInteger
 
 /**
  * Performs the search request and provides the resultant variants.
  */
 class VariantsIterator[K, V](service: Genomics, part: VariantsPartition,
-    builder: RowBuilder[K, V], maxResults: String = "50")
+    builder: RowBuilder[K, V], maxResults: Int = 50)
     extends Iterator[(K, V)] {
   // The next page token for the query. If the results span multiple
   // pages, this will hold the next page token. If None, the search is
@@ -42,11 +42,11 @@ class VariantsIterator[K, V](service: Genomics, part: VariantsPartition,
   private def refresh(): Iterator[VariantModel] = {
     token.map { t =>
       val req = new SearchVariantsRequest()
-        .setVariantsetId(part.dataset)
-        .setContig(part.contig)
-        .setMaxResults(new BigInteger(maxResults))
-        .setStartPosition(java.lang.Long.valueOf(part.start))
-        .setEndPosition(java.lang.Long.valueOf(part.end))
+        .setVariantSetIds(List(part.dataset))
+        .setReferenceName(part.contig)
+        .setPageSize(maxResults)
+        .setStart(java.lang.Long.valueOf(part.start))
+        .setEnd(java.lang.Long.valueOf(part.end))
 
       if (t.length > 0) { req.setPageToken(t) }
       req
