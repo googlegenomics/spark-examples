@@ -34,7 +34,7 @@ import com.google.cloud.genomics.Client
  * for more information.
  */
 case class Read(alignedBases: String, baseQuality: String, cigar: String,
-    flags: Int, id: String, mappingQuality: Int, matePosition: Int,
+    flags: Int, id: String, mappingQuality: Int, matePosition: Option[Int],
     mateReferenceSequenceName: String, name: String, originalBases: String,
     position: Int, readsetId: String, referenceSequenceName: String,
     tags: Map[String, JList[String]], templateLength: Int) extends Serializable
@@ -49,7 +49,10 @@ object ReadBuilder {
         r.getFlags,
         r.getId, 
         r.getMappingQuality,
-        r.getMatePosition,
+        if (r.getMatePosition == null)
+          Some(r.getMatePosition)
+        else
+          None,
         r.getMateReferenceSequenceName,
         r.getName,
         r.getOriginalBases,
@@ -79,7 +82,8 @@ class ReadsRDD(sc: SparkContext,
   }
 
   override def compute(part: Partition, ctx: TaskContext): Iterator[(ReadKey, Read)] = {
-    new ReadsIterator(Client(applicationName, clientSecretsFile).genomics, part.asInstanceOf[ReadsPartition])
+    new ReadsIterator(Client(applicationName, clientSecretsFile).genomics, 
+        part.asInstanceOf[ReadsPartition])
   }
 }
 
