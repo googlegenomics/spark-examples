@@ -89,24 +89,24 @@ Run [bdutil](https://groups.google.com/forum/#!topic/gcp-hadoop-announce/EfQms8t
 Upload the following files to provide the workers with appropriate credentials.
 
 ```
-gcutil push --ssh_user=hadoop hs-ghfs-nn ~/.store client_secrets.json .
+gcutil push --ssh_user=hadoop hadoop-m ~/.store client_secrets.json .
 
 for i in {0..1}; do 
- gcutil push --ssh_user=hadoop hs-ghfs-dn-$i ~/.store client_secrets.json .; 
+ gcutil push --ssh_user=hadoop hadoop-w-$i ~/.store client_secrets.json .; 
 done
 ```
 (This step assumes thad you already ran the example locally and generated the credentials.)
 
 Upload the assembly jar to the master node.
 ```
-gcutil push --ssh_user=hadoop hs-ghfs-nn \
+gcutil push --ssh_user=hadoop hadoop-m \
 target/scala-2.10/googlegenomics-spark-examples-assembly-1.0.jar .
 ```
 
 To run the examples on GCE, login to the master node and launch the examples using the `scala-class` script.
 ```bash
 # Login into the master node
-gcutil ssh --ssh_user=hadoop hs-ghfs-nn
+gcutil ssh --ssh_user=hadoop hadoop-m
 
 # Add the jar to the classpath
 export SPARK_CLASSPATH=googlegenomics-spark-examples-assembly-1.0.jar
@@ -114,7 +114,7 @@ export SPARK_CLASSPATH=googlegenomics-spark-examples-assembly-1.0.jar
 # Run the examples
 spark-class com.google.cloud.genomics.spark.examples.SearchReadsExample1 \
 --client-secrets /home/hadoop/client_secrets.json \ 
---spark-master spark://hs-ghfs-nn:7077 \
+--spark-master spark://hadoop-m:7077 \
 --jar-path googlegenomics-spark-examples-assembly-1.0.jar
 ```
 
@@ -135,7 +135,7 @@ Force the DNS resolution to occur on the remote proxy host rather than locally.
 Go to "about:config" in the URL bar
 Search for "socks" to toggle "network.proxy.socks_remote_dns" to "true".
 Visit the web UIs exported by your cluster!
-http://hs-ghfs-nn:8080 for Spark
+http://hadoop-m:8080 for Spark
 ```
 
 To open the web UI ports.
