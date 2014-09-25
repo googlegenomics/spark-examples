@@ -49,7 +49,7 @@ object ReadBuilder {
         r.getFlags,
         r.getId, 
         r.getMappingQuality,
-        if (r.getMatePosition == null)
+        if (r.containsKey("matePosition"))
           Some(r.getMatePosition)
         else
           None,
