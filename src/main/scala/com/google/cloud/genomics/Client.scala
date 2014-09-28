@@ -68,5 +68,5 @@ object Client {
   }
 }
 
-class Client(val genomics: Genomics) {}
+class Client(val genomics: Genomics)
 

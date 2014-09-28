@@ -7,7 +7,9 @@ scalaVersion := "2.10.4"
 val googleAPIVersion = "1.19.0"
 val googleAPIGenomicsVersion = "v1beta-rev34-1.19.0"
 
-val sparkVersion = "1.0.2"
+val sparkVersion = "1.1.0"
+
+val genomicsUtilsVersion = "0.15"
 
 val excludeMortbayJetty = ExclusionRule(organization = "org.mortbay.jetty", name = "servlet-api")
 
@@ -19,6 +21,7 @@ libraryDependencies ++= Seq(
   "com.google.oauth-client" % "google-oauth-client-jetty" % googleAPIVersion excludeAll(excludeMortbayJetty), 
   "com.google.http-client" % "google-http-client" % googleAPIVersion,
   "com.google.http-client" % "google-http-client-jackson2" % googleAPIVersion,
+  "com.google.cloud.genomics" % "google-genomics-utils" % genomicsUtilsVersion,
   "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "provided",
   "org.rogach" %% "scallop" % "0.9.5"

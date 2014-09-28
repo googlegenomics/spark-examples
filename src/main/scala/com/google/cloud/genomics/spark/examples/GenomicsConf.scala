@@ -19,11 +19,12 @@ package com.google.cloud.genomics.spark.examples
 import org.apache.spark.SparkContext
 import org.rogach.scallop.ScallopConf
 import org.apache.spark.SparkConf
+import com.google.cloud.genomics.Client
 
 class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
   val sparkMaster = opt[String](default = Some("local[2]"))
   val sparkPath = opt[String](default = Some(""))
-  val outputPath = opt[String](default = Some("out"))
+  val outputPath = opt[String]()
   val contigs = opt[String](default=Some("17:41196312:41277500"),
       descr = "Comma separated tuples of contig:start:end,...")
   val partitionsPerContig = opt[Int](default = Some(10), 
@@ -40,7 +41,7 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
   val jarPath = opt[String]()
   val clientSecrets = opt[String](default = Some("client_secrets.json"))
 
-  def newSparkContext(className: String, registrator:Option[String]=None) = {
+  def newSparkContext(className: String) = {
     val jarPath = if (this.jarPath.isDefined)
       Seq(this.jarPath())
     else
@@ -50,13 +51,12 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
       .setAppName(className)
       .setSparkHome(this.sparkPath())
       .setJars(jarPath)
-    if (registrator.isDefined) {
-      conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-      conf.set("spark.kryo.registrator", registrator.get)
-    }
     conf.set("spark.shuffle.consolidateFiles", "true")
     new SparkContext(conf)
   }
+  
+  def newGenomicsClient(application: String) = 
+    Client(application, this.clientSecrets()).genomics
   
   def getContigs = {
     this.contigs().split(",").map(contig => {
@@ -67,5 +67,5 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
 }
 
 class PcaConf(arguments: Seq[String]) extends GenomicsConf(arguments) {
-  val nocomputeSimilarity = opt[Boolean](default=Option(false))
+  val useCachedSimilarity = opt[Boolean](default=Option(false))
 }
