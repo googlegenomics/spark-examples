@@ -15,12 +15,12 @@ limitations under the License.
 */
 package com.google.cloud.genomics.spark.examples
 
-import scala.collection.JavaConversions.asScalaIterator
-import scala.collection.JavaConversions.seqAsJavaList
+import breeze.linalg._
+import scala.collection.JavaConversions._
 import org.apache.log4j.Level
 import org.apache.log4j.Logger
-import org.apache.spark.SparkContext.rddToOrderedRDDFunctions
-import org.apache.spark.SparkContext.rddToPairRDDFunctions
+import org.apache.spark.SparkContext
+import org.apache.spark.SparkContext._
 import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.mllib.linalg.distributed.RowMatrix
 import org.apache.spark.rdd.RDD
@@ -78,42 +78,31 @@ class VariantsPcaDriver(conf: PcaConf) {
     val samplesWithVariant = getData.map(kv => kv._2)
       .map(_.calls.getOrElse(Seq()))
       .map(calls => calls.filter(_.genotype.foldLeft(false)(_ || _ > 0)))
-      // Keep only the variants that have more than 1 call
+      // Keep only those variants that have more than 1 call
       .filter(_.size > 1).cache
-    val callsets = samplesWithVariant.map(_.map(_.callsetName))
     val broadcastNames = sc.broadcast(indexes)
+    val callsets = samplesWithVariant.map(_.map(_.callsetName))
     callsets.map(callset => {
       val mapping = broadcastNames.value
       callset.map(mapping(_).toInt)
     })
   }
-
-  def getSimilarityMatrix(ids: RDD[Seq[Int]]) = {
-    // Keep track of how many calls shared the same variant
-    val similar = ids.flatMap(callset =>
-      // Emit only half of the counts
-      for (c1 <- callset.iterator; c2 <- callset.iterator if c1 <= c2)
-        yield ((c1, c2), 1)).reduceByKey(_ + _, conf.reducePartitions())
-    if (conf.outputPath.isDefined) {
-      val out = conf.outputPath()
-      similar.saveAsObjectFile(s"${out}-similar.dat")
-      //indexes.saveAsObjectFile(s"${out}-indexes.dat")
-    }
-    similar
+  
+  def getSimilarityMatrix(callsets: RDD[Seq[Int]]) = {
+    val size = indexes.size
+    callsets.mapPartitions(callsInPartition => {
+      val matrix = DenseMatrix.zeros[Int](size, size)
+      callsInPartition.foreach(callset => 
+        for (c1 <- callset; c2 <- callset)
+          matrix.update(c1, c2, matrix(c1, c2) + 1))
+      matrix.iterator
+    }).reduceByKey(_ + _, conf.reducePartitions())
   }
 
   def doPca(simVectors: RDD[((Int, Int), Int)]) {
     val rowCount = indexes.size
     val entries =
       simVectors.map(item => (item._1._1, item._1._2, item._2.toDouble))
-        .flatMap(item => {
-          // Rebuild the symmetric matrix
-          if (item._1 < item._2) {
-            Seq(item, (item._2, item._1, item._3))
-          } else {
-            Seq(item)
-          }
-        })
         .map(item => (item._1, (item._2, item._3)))
         .groupByKey()
         .sortByKey(true)
@@ -149,4 +138,23 @@ class VariantsPcaDriver(conf: PcaConf) {
   def stop {
     sc.stop
   }
+  
+  def getSimilarityMatrixStream(ids: RDD[Seq[Int]]) = {
+    // Keep track of how many calls share the same variant
+    ids.flatMap(callset =>
+      // Emit only half of the counts
+      for (c1 <- callset.iterator; c2 <- callset.iterator if c1 <= c2)
+        yield ((c1, c2), 1))
+    // Aggregate the similar pairs, partially done in memory.
+    .reduceByKey(_ + _, conf.reducePartitions())        
+    // Rebuild the symmetric matrix
+    .flatMap(item => {
+      if (item._1._1 < item._1._2) {
+        Seq(item, (item._2, item._1, item._2))
+      } else {
+        Seq(item)
+      }
+    })
+  }
+
 }
