@@ -138,7 +138,8 @@ class VariantsRDD(sc: SparkContext,
     applicationName: String,
     clientSecretsFile: String,
     dataset: String,
-    variantsPartitioner: VariantsPartitioner)
+    variantsPartitioner: VariantsPartitioner, 
+    pageSize: Int=10)
     extends RDD[(VariantKey, Variant)](sc, Nil) {
 
   override val partitioner = Some(variantsPartitioner)
@@ -151,7 +152,7 @@ class VariantsRDD(sc: SparkContext,
   Iterator[(VariantKey, Variant)] = {
     new VariantsIterator[VariantKey, Variant](Client(applicationName,
             clientSecretsFile).genomics, part.asInstanceOf[VariantsPartition], 
-            new VariantsRDDBuilder())
+            new VariantsRDDBuilder(), pageSize=pageSize)
   }
 }
 

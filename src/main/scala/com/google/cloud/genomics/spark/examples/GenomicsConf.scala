@@ -19,28 +19,28 @@ package com.google.cloud.genomics.spark.examples
 import org.apache.spark.SparkContext
 import org.rogach.scallop.ScallopConf
 import org.apache.spark.SparkConf
+import com.google.cloud.genomics.Client
 
 class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
   val sparkMaster = opt[String](default = Some("local[2]"))
   val sparkPath = opt[String](default = Some(""))
-  val outputPath = opt[String](default = Some("out"))
-  val contigs = opt[String](default=Some("17:41196312:41277500"),
-      descr = "Comma separated tuples of contig:start:end,...")
-  val partitionsPerContig = opt[Int](default = Some(10), 
-      descr = "How many partitions per contig. Set it to a " + 
+  val outputPath = opt[String]()
+  val references = opt[String](default=Some("17:41196312:41277500"),
+      descr = "Comma separated tuples of reference:start:end,...")
+  val partitionsPerReference = opt[Int](default = Some(10), 
+      descr = "How many partitions per reference. Set it to a " + 
       "number greater than the number of cores, to achieve maximum " +
       "throughput.")
-  val reducePartitions = opt[Int](default = Some(10), 
+  val numReducePartitions = opt[Int](default = Some(10), 
       descr = "Set it to a " + 
       "number greater than the number of cores, to achieve maximum " +
       "throughput.")
-  val maxResults = opt[Int](default = Some(50))
-  val numPc = opt[Int](default = Some(2))
+  val pageSize = opt[Int](default = Some(50))
   val inputPath = opt[String]()
   val jarPath = opt[String]()
   val clientSecrets = opt[String](default = Some("client_secrets.json"))
 
-  def newSparkContext(className: String, registrator:Option[String]=None) = {
+  def newSparkContext(className: String) = {
     val jarPath = if (this.jarPath.isDefined)
       Seq(this.jarPath())
     else
@@ -50,16 +50,15 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
       .setAppName(className)
       .setSparkHome(this.sparkPath())
       .setJars(jarPath)
-    if (registrator.isDefined) {
-      conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-      conf.set("spark.kryo.registrator", registrator.get)
-    }
     conf.set("spark.shuffle.consolidateFiles", "true")
     new SparkContext(conf)
   }
   
-  def getContigs = {
-    this.contigs().split(",").map(contig => {
+  def newGenomicsClient(application: String) = 
+    Client(application, this.clientSecrets()).genomics
+  
+  def getReferences = {
+    this.references().split(",").map(contig => {
       val data = contig.split(":")
       (data(0), (data(1).toLong, data(2).toLong))
     }).toMap
@@ -67,5 +66,5 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
 }
 
 class PcaConf(arguments: Seq[String]) extends GenomicsConf(arguments) {
-  val nocomputeSimilarity = opt[Boolean](default=Option(false))
+  val numPc = opt[Int](default = Some(2))
 }
