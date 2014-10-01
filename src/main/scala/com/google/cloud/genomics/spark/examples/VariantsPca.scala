@@ -35,7 +35,7 @@ import com.google.cloud.genomics.spark.examples.rdd.VariantsRDD
 import com.google.cloud.genomics.utils.Paginator
 
 object VariantsPcaDriver {
-  
+
   def main(args: Array[String]) = {
     Logger.getLogger("org").setLevel(Level.WARN)
     val conf = new PcaConf(args)
@@ -52,12 +52,12 @@ object VariantsPcaDriver {
 class VariantsPcaDriver(conf: PcaConf) {
 
   val sc = conf.newSparkContext(this.getClass.getName)
-  
+
   val indexes: Map[String, Int] = {
     val client = conf.newGenomicsClient(this.getClass.getName)
-    val searchCallsets = Paginator.Callsets.create(client)   
+    val searchCallsets = Paginator.Callsets.create(client)
     val req = new SearchCallSetsRequest()
-        .setVariantSetIds(List(VariantDatasets.Google_1000_genomes_phase_1))
+        .setVariantSetIds(List(conf.variantSetId()))
     searchCallsets.search(req).iterator()
       .map(callSet => callSet.getSampleId).toSeq.zipWithIndex.toMap
   }
@@ -68,13 +68,13 @@ class VariantsPcaDriver(conf: PcaConf) {
     } else {
       val contigs = conf.getReferences
       new VariantsRDD(sc, this.getClass.getName, conf.clientSecrets(),
-        VariantDatasets.Google_1000_genomes_phase_1,
-        new VariantsPartitioner(contigs, 
+        conf.variantSetId(),
+        new VariantsPartitioner(contigs,
             FixedContigSplits(conf.partitionsPerReference())),
         pageSize=conf.pageSize())
     }
   }
-  
+
   /**
    * Returns an RDD of variant callsets with each call mapped to an position.
    */
@@ -91,16 +91,16 @@ class VariantsPcaDriver(conf: PcaConf) {
       callset.map(mapping(_).toInt)
     })
   }
-  
+
   /**
    * Computes a similarity matrix from the variant information.
-   * 
-   * This method computes the similarity in place, this means it updates the 
+   *
+   * This method computes the similarity in place, this means it updates the
    * the counts in place on a pre-allocated dense matrix.
-   * 
-   * Use this method if the partial matrix will fit in memory, roughly 
+   *
+   * Use this method if the partial matrix will fit in memory, roughly
    * a data set with 50K samples would fit on ~20GB of memory.
-   * 
+   *
    * @param calls an RDD of call ids, one variant per record.
    * @return an RDD of tuples with the matrix entry indexes and its similarity.
    */
@@ -108,7 +108,7 @@ class VariantsPcaDriver(conf: PcaConf) {
     val size = indexes.size
     callsets.mapPartitions(callsInPartition => {
       val matrix = DenseMatrix.zeros[Int](size, size)
-      callsInPartition.foreach(callset => 
+      callsInPartition.foreach(callset =>
         for (c1 <- callset; c2 <- callset)
           matrix.update(c1, c2, matrix(c1, c2) + 1))
       matrix.iterator
@@ -117,7 +117,7 @@ class VariantsPcaDriver(conf: PcaConf) {
 
   /**
    * Computes the PCA from the similarity matrix entries.
-   * 
+   *
    * @param matrixEntries an RDD of tuples representing the matrix entries.
    */
   def doPca(matrixEntries: RDD[((Int, Int), Int)]) {
@@ -159,22 +159,22 @@ class VariantsPcaDriver(conf: PcaConf) {
   def stop {
     sc.stop
   }
-  
+
   /**
    * Computes a similarity matrix from the variant information.
-   * 
+   *
    * This method computes the similarity in a streaming fashion, this means
-   * it never stores the partial similarity matrix in memory. The drawback 
-   * from this approach is that it generates large shuffles as it emits a 
+   * it never stores the partial similarity matrix in memory. The drawback
+   * from this approach is that it generates large shuffles as it emits a
    * pair for each co-occurring call on a variant.
-   * 
-   * Use this method only if the partial matrix won't fit in memory, roughly 
+   *
+   * Use this method only if the partial matrix won't fit in memory, roughly
    * a data set with 50K samples would fit on ~20GB of memory.
-   * 
+   *
    * @param calls an RDD of call ids, one variant per record.
    * @return an RDD of tuples with the matrix entry indexes and its similarity.
    */
-  def getSimilarityMatrixStream(calls: RDD[Seq[Int]]): 
+  def getSimilarityMatrixStream(calls: RDD[Seq[Int]]):
     RDD[((Int, Int), Int)] = {
     // Keep track of how many calls share the same variant
     calls.flatMap(callset =>
@@ -182,7 +182,7 @@ class VariantsPcaDriver(conf: PcaConf) {
       for (c1 <- callset.iterator; c2 <- callset.iterator if c1 <= c2)
         yield ((c1, c2), 1))
     // Aggregate the similar pairs, partially done in memory.
-    .reduceByKey(_ + _, conf.numReducePartitions())        
+    .reduceByKey(_ + _, conf.numReducePartitions())
     // Rebuild the symmetric matrix from the aggregated pairs.
     .flatMap(item => {
       if (item._1._1 < item._1._2) {

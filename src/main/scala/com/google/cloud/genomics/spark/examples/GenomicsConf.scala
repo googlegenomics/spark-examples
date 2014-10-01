@@ -25,14 +25,16 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
   val sparkMaster = opt[String](default = Some("local[2]"))
   val sparkPath = opt[String](default = Some(""))
   val outputPath = opt[String]()
+  val variantSetId = opt[String](default = Some(VariantSetIds.Google_1000_genomes_phase_1),
+      descr = "VariantSetId to use in the analysis.")
   val references = opt[String](default=Some("17:41196312:41277500"),
       descr = "Comma separated tuples of reference:start:end,...")
-  val partitionsPerReference = opt[Int](default = Some(10), 
-      descr = "How many partitions per reference. Set it to a " + 
+  val partitionsPerReference = opt[Int](default = Some(10),
+      descr = "How many partitions per reference. Set it to a " +
       "number greater than the number of cores, to achieve maximum " +
       "throughput.")
-  val numReducePartitions = opt[Int](default = Some(10), 
-      descr = "Set it to a " + 
+  val numReducePartitions = opt[Int](default = Some(10),
+      descr = "Set it to a " +
       "number greater than the number of cores, to achieve maximum " +
       "throughput.")
   val pageSize = opt[Int](default = Some(50))
@@ -53,10 +55,10 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
     conf.set("spark.shuffle.consolidateFiles", "true")
     new SparkContext(conf)
   }
-  
-  def newGenomicsClient(application: String) = 
+
+  def newGenomicsClient(application: String) =
     Client(application, this.clientSecrets()).genomics
-  
+
   def getReferences = {
     this.references().split(",").map(contig => {
       val data = contig.split(":")

@@ -47,7 +47,7 @@ class VariantsPartitioner(variants: Map[String, (Long, Long)],
   override def numPartitions: Int = count
 
   // Generates all partitions for all mapped variants in the contig space.
-  def getPartitions(dataset: String): Array[Partition] = {
+  def getPartitions(variantSetId: String): Array[Partition] = {
     variants.map { kv =>
       val (name: String, range: (Long, Long)) = kv
       var idx = steps(name)
@@ -55,7 +55,7 @@ class VariantsPartitioner(variants: Map[String, (Long, Long)],
       val span = (range._2 - range._1) / n
       (0 until n).map { i =>
         val start = range._1 + (i * span)
-        val p = VariantsPartition(idx, dataset, name, start, start + span)
+        val p = VariantsPartition(idx, variantSetId, name, start, start + span)
         idx += 1
         p
       }.toArray
