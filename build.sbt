@@ -13,8 +13,10 @@ val genomicsUtilsVersion = "0.15"
 
 val excludeMortbayJetty = ExclusionRule(organization = "org.mortbay.jetty", name = "servlet-api")
 
+val excludeGuavaJdk5 = ExclusionRule(organization = "com.google.guava", name = "guava-jdk5")
+
 libraryDependencies ++= Seq(
-  "com.google.api-client" % "google-api-client" % googleAPIVersion,
+  "com.google.api-client" % "google-api-client" % googleAPIVersion excludeAll(excludeGuavaJdk5),
   "com.google.api-client" % "google-api-client-java6" % googleAPIVersion,
   "com.google.apis" % "google-api-services-genomics" % googleAPIGenomicsVersion,
   "com.google.oauth-client" % "google-oauth-client-java6" % googleAPIVersion,
