@@ -53,7 +53,7 @@ class VariantsPcaDriver(conf: PcaConf) {
 
   val sc = conf.newSparkContext(this.getClass.getName)
   
-  val indexes = {
+  val indexes: Map[String, Int] = {
     val client = conf.newGenomicsClient(this.getClass.getName)
     val searchCallsets = Paginator.Callsets.create(client)   
     val req = new SearchCallSetsRequest()
@@ -62,7 +62,7 @@ class VariantsPcaDriver(conf: PcaConf) {
       .map(callSet => callSet.getSampleId).toSeq.zipWithIndex.toMap
   }
 
-  private def getData = {
+  private def getData: RDD[(VariantKey, Variant)] = {
     if (conf.inputPath.isDefined) {
       sc.objectFile[(VariantKey, Variant)](conf.inputPath())
     } else {
