@@ -82,7 +82,7 @@ gsutil mb gs://<bucket-name>
 Run [bdutil](https://groups.google.com/forum/#!topic/gcp-hadoop-announce/EfQms8tK5cE) to create a Spark cluster.
 
 ```
-./bdutil -e extensions/spark/spark1_env.sh -b <configbucket> deploy
+./bdutil -e extensions/spark/spark_env.sh -b <configbucket> deploy
 
 ```
 
