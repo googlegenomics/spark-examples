@@ -42,7 +42,7 @@ class VariantsIterator[K, V](service: Genomics, part: VariantsPartition,
   private def refresh(): Iterator[VariantModel] = {
     token.map { t =>
       val req = new SearchVariantsRequest()
-        .setVariantSetIds(List(part.dataset))
+        .setVariantSetIds(List(part.variantSetId))
         .setReferenceName(part.contig)
         .setPageSize(pageSize)
         .setStart(java.lang.Long.valueOf(part.start))
@@ -82,6 +82,6 @@ class VariantsIterator[K, V](service: Genomics, part: VariantsPartition,
 }
 
 trait RowBuilder[K,V] {
-  def build(model: VariantModel): (K, V) 
+  def build(model: VariantModel): (K, V)
 }
 
