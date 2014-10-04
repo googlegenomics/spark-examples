@@ -38,21 +38,21 @@ import com.google.cloud.genomics.Client
  * for more information.
  */
 
-case class Call(callsetId: String, callsetName: String, genotype: List[Integer], 
-    genotypeLikelihood: Option[List[JDouble]], phaseset: String, 
+case class Call(callsetId: String, callsetName: String, genotype: List[Integer],
+    genotypeLikelihood: Option[List[JDouble]], phaseset: String,
     info: Map[String, JList[String]]) extends Serializable
 
 
-case class Variant(contig: String, id: String, names: Option[List[String]], 
-    position: Long, end: Option[Long], referenceBases: String, 
-    alternateBases: Option[List[String]], info: Map[String, JList[String]], 
-    created: Long, datasetId: String, calls: Option[Seq[Call]]) extends Serializable {
-    
+case class Variant(contig: String, id: String, names: Option[List[String]],
+    position: Long, end: Option[Long], referenceBases: String,
+    alternateBases: Option[List[String]], info: Map[String, JList[String]],
+    created: Long, variantSetId: String, calls: Option[Seq[Call]]) extends Serializable {
+
   def toJavaVariant() = {
     val variant = new VariantModel()
     .setReferenceName(this.contig)
     .setCreated(this.created)
-    .setVariantSetId(this.datasetId)
+    .setVariantSetId(this.variantSetId)
     .setId(this.id)
     .setInfo(this.info)
     .setStart(this.position)
@@ -89,8 +89,8 @@ class VariantsRDDBuilder extends RowBuilder[VariantKey, Variant] {
     val calls = if (r.containsKey("calls"))
         Some(r.getCalls().map(
             c => Call(
-                c.getCallSetId, 
-                c.getCallSetName, 
+                c.getCallSetId,
+                c.getCallSetName,
                 c.getGenotype.toList,
                 if (c.containsKey("genotypeLikelihood"))
                   Some(c.getGenotypeLikelihood.toList)
@@ -102,23 +102,23 @@ class VariantsRDDBuilder extends RowBuilder[VariantKey, Variant] {
         None
 
     val variant = Variant(
-        r.getReferenceName, 
-        r.getId, 
+        r.getReferenceName,
+        r.getId,
         if (r.containsKey("names"))
           Some(r.getNames.toList)
         else
           None,
         r.getStart,
-        if (r.containsKey("end")) 
+        if (r.containsKey("end"))
           Some(r.getEnd)
-        else 
-          None, 
-        r.getReferenceBases,
-        if (r.containsKey("alternateBases")) 
-          Some(r.getAlternateBases.toList) 
-        else 
+        else
           None,
-        r.getInfo.toMap, 
+        r.getReferenceBases,
+        if (r.containsKey("alternateBases"))
+          Some(r.getAlternateBases.toList)
+        else
+          None,
+        r.getInfo.toMap,
         if (r.containsKey("created"))
           r.getCreated
         else
@@ -137,21 +137,21 @@ class VariantsRDDBuilder extends RowBuilder[VariantKey, Variant] {
 class VariantsRDD(sc: SparkContext,
     applicationName: String,
     clientSecretsFile: String,
-    dataset: String,
-    variantsPartitioner: VariantsPartitioner, 
+    variantSetId: String,
+    variantsPartitioner: VariantsPartitioner,
     pageSize: Int=10)
     extends RDD[(VariantKey, Variant)](sc, Nil) {
 
   override val partitioner = Some(variantsPartitioner)
 
   override def getPartitions: Array[Partition] = {
-    variantsPartitioner.getPartitions(dataset)
+    variantsPartitioner.getPartitions(variantSetId)
   }
 
   override def compute(part: Partition, ctx: TaskContext):
   Iterator[(VariantKey, Variant)] = {
     new VariantsIterator[VariantKey, Variant](Client(applicationName,
-            clientSecretsFile).genomics, part.asInstanceOf[VariantsPartition], 
+            clientSecretsFile).genomics, part.asInstanceOf[VariantsPartition],
             new VariantsRDDBuilder(), pageSize=pageSize)
   }
 }
@@ -160,7 +160,7 @@ class VariantsRDD(sc: SparkContext,
  * Defines a search range over a contig.
  */
 case class VariantsPartition(override val index: Int,
-                          val dataset: String,
+                          val variantSetId: String,
                           val contig: String,
                           val start: Long,
                           val end: Long) extends Partition

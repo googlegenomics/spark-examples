@@ -29,7 +29,7 @@ import org.apache.spark.SparkContext._
 import com.google.cloud.genomics.spark.examples.rdd.VariantKey
 import com.google.cloud.genomics.spark.examples.rdd.Variant
 
-object VariantDatasets {
+object VariantSetIds {
   final val Google_PGP_gVCF_Variants =   "11785686915021445549"
   final val Google_1000_genomes_phase_1 = "1154144306496329440"
 }
@@ -49,7 +49,7 @@ object SearchVariantsExampleKlotho {
     val data = new VariantsRDD(sc,
       this.getClass.getName,
       conf.clientSecrets(),
-      VariantDatasets.Google_PGP_gVCF_Variants,
+      VariantSetIds.Google_PGP_gVCF_Variants,
       new VariantsPartitioner(klotho, FixedContigSplits(1)))
     data.cache()  // The amount of data is small since its just for one SNP.
     println("We have " + data.count() + " records that overlap Klotho.")
@@ -92,13 +92,13 @@ object SearchVariantsExampleBRCA1 {
     val sc = conf.newSparkContext(this.getClass.getName)
     Logger.getLogger("org").setLevel(Level.WARN)
     val brca1 = Map(("17" -> (41196312L, 41277500L)))
-    val data = if (conf.inputPath.isDefined)  
+    val data = if (conf.inputPath.isDefined)
       sc.objectFile[(VariantKey, Variant)](conf.inputPath())
     else
       new VariantsRDD(sc,
         this.getClass.getName,
         conf.clientSecrets(),
-        VariantDatasets.Google_PGP_gVCF_Variants,
+        VariantSetIds.Google_PGP_gVCF_Variants,
         new VariantsPartitioner(brca1, FixedContigSplits(1)))
     data.cache() // The amount of data is small since its just for one gene
     println("We have " + data.count() + " records that overlap BRCA1.")
