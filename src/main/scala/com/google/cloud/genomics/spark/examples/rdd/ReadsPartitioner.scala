@@ -22,7 +22,7 @@ import collection.immutable.TreeMap
  * Describes partitions for a set of sequences and their ranges.
  */
 class ReadsPartitioner(sequences: Map[String, (Long, Long)],
-                       splitter: SequenceSplitter) extends Partitioner {
+    splitter: SequenceSplitter) extends Partitioner {
   // Maps sequence name to partition count.
   final val parts = TreeMap[String, Int]() ++
     (sequences.map(kv => (kv._1, splitter.splits(kv._2._2 - kv._2._1))).toMap)
@@ -31,9 +31,10 @@ class ReadsPartitioner(sequences: Map[String, (Long, Long)],
   final val count = parts.foldLeft(0)(_ + _._2)
 
   // Maps sequence name to starting parition.
-  final val steps = parts.tail.scanLeft((parts.head._1, 0))((a, b) => (b._1, a._2 + b._2))
+  final val steps = parts.tail.scanLeft((parts.head._1, 0))((a, b)
+      => (b._1, a._2 + b._2))
 
-  def getPartition(key: Any): Int = {
+  override def getPartition(key: Any): Int = {
     val rk = key.asInstanceOf[ReadKey]
     val seq = rk.sequence
     val len = {
@@ -43,7 +44,7 @@ class ReadsPartitioner(sequences: Map[String, (Long, Long)],
     (steps(seq) + ((parts(seq) - 1) / (len / rk.position))).toInt
   }
 
-  def numPartitions: Int = count
+  override def numPartitions: Int = count
 
   // Generates all partitions for all mapped reads in the sequence space.
   def getPartitions(readsets: List[String]): Array[Partition] = {
@@ -80,8 +81,10 @@ case class FixedSplits(numSplits: Int) extends SequenceSplitter {
  * Used to split a sequence into a number of similarly sized partitions based on
  * the length and some known (or estimated) parameters.
  */
-case class TargetSizeSplits(readLength: Int, readDepth: Int, readSize: Int, partitionSize: Long) extends SequenceSplitter {
+case class TargetSizeSplits(readLength: Int, readDepth: Int, readSize: Int, 
+    partitionSize: Long) extends SequenceSplitter {
   def splits(sequenceLength: Long): Int = {
-    1 + (((sequenceLength / readLength) * readDepth * readSize).toLong / (partitionSize + 1)).toInt
+    1 + (((sequenceLength / readLength) * readDepth * readSize).toLong / 
+        (partitionSize + 1)).toInt
   }
 }
