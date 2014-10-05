@@ -42,7 +42,15 @@ object VariantsPcaDriver {
     val driver = VariantsPcaDriver(conf)
     val callsRdd = driver.getCallsRdd
     val simMatrix = driver.getSimilarityMatrix(callsRdd)
-    driver.doPca(simMatrix)
+
+    val result = driver.computePca(simMatrix)
+    result.sortBy(_._1).foreach(tuple =>
+      println(s"${tuple._1}\t\t${tuple._2}\t${tuple._3}"))
+
+    if(conf.outputPath.isDefined) {
+      val resultRdd = driver.sc.parallelize(result)
+      resultRdd.saveAsTextFile(conf.outputPath() + "-pca.txt")
+    }
     driver.stop
   }
 
@@ -83,7 +91,7 @@ class VariantsPcaDriver(conf: PcaConf) {
       .map(_.calls.getOrElse(Seq()))
       .map(calls => calls.filter(_.genotype.foldLeft(false)(_ || _ > 0)))
       // Keep only those variants that have at least one call.
-      .filter(_.size > 0).cache
+      .filter(_.size > 0)
     val broadcastNames = sc.broadcast(indexes)
     val callsets = samplesWithVariant.map(_.map(_.callsetName))
     callsets.map(callset => {
@@ -120,7 +128,7 @@ class VariantsPcaDriver(conf: PcaConf) {
    *
    * @param matrixEntries an RDD of tuples representing the matrix entries.
    */
-  def doPca(matrixEntries: RDD[((Int, Int), Int)]) {
+  def computePca(matrixEntries: RDD[((Int, Int), Int)]) = {
     val rowCount = indexes.size
     val entries =
       matrixEntries.map(item => (item._1._1, item._1._2, item._2.toDouble))
@@ -152,8 +160,7 @@ class VariantsPcaDriver(conf: PcaConf) {
     val table = for (i <- 0 until pca.numRows)
       yield (reverse(i), array(i), array(i + pca.numRows))
 
-    table.sortBy(_._1).foreach(tuple =>
-      println(s"${tuple._1}\t\t${tuple._2}\t${tuple._3}"))
+    table
   }
 
   def stop {
