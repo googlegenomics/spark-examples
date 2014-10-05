@@ -20,6 +20,7 @@ import scala.collection.JavaConversions.seqAsJavaList
 
 import com.google.api.services.genomics.Genomics
 import com.google.api.services.genomics.model.SearchVariantsRequest
+import com.google.api.services.genomics.model.SearchVariantsResponse
 import com.google.api.services.genomics.model.{Variant => VariantModel}
 
 /**
@@ -51,8 +52,21 @@ class VariantsIterator[K, V](service: Genomics, part: VariantsPartition,
       if (t.length > 0) { req.setPageToken(t) }
       req
     }
-      .map { service.variants().search(_).execute() }
-      .map { resp =>
+     .map { req =>
+        var resp = new SearchVariantsResponse()
+        // TODO(#31) instead use com.google.cloud.genomics.utils.RetryPolicy
+        var i = 0
+        while(i < 3) {
+        try {
+          resp = service.variants().search(req).execute()
+          i = 99 // break out of loop, there is probably a much better scala-way to do this
+        } catch {
+          case e: Exception => i += 1
+        }
+        }
+        resp
+      }
+    .map { resp =>
         token = resp.getNextPageToken() match {
           case null => None
           case tok => Some(tok)
