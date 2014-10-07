@@ -26,9 +26,9 @@ import org.apache.spark.SparkContext._
 
 object Examples {
 
-  final val Google_1KG_HG00096_Readset = "CJDmkYn8ChCcnc7i4KaWqmQ"
+  final val Google_1KG_HG00096_Readset = "CMvnhpKTFhCwvIWYw9eikzQ"
   // From http://google-genomics.readthedocs.org/en/latest/constants.html
-  final val Google_Example_Readset = "CJDmkYn8ChCh4IH4hOf4gacB"
+  final val Google_Example_Readset = "CMvnhpKTFhD04eLE-q2yxnU"
   // Sage Bio DREAM Contest - Synthetic Set #3
   val Google_DREAM_Set3_Normal = "CPHG3MzoCRDRkqXzk7b6l_kB"
   val Google_DREAM_Set3_Tumor = "CPHG3MzoCRCO1rDx8pOY6yo"
