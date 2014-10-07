@@ -42,15 +42,8 @@ object VariantsPcaDriver {
     val driver = VariantsPcaDriver(conf)
     val callsRdd = driver.getCallsRdd
     val simMatrix = driver.getSimilarityMatrix(callsRdd)
-
     val result = driver.computePca(simMatrix)
-    result.sortBy(_._1).foreach(tuple =>
-      println(s"${tuple._1}\t\t${tuple._2}\t${tuple._3}"))
-
-    if(conf.outputPath.isDefined) {
-      val resultRdd = driver.sc.parallelize(result)
-      resultRdd.saveAsTextFile(conf.outputPath() + "-pca.txt")
-    }
+    driver.emitResult(result)
     driver.stop
   }
 
@@ -157,10 +150,19 @@ class VariantsPcaDriver(conf: PcaConf) {
     val pca = matrix.computePrincipalComponents(conf.numPc())
     val array = pca.toArray
     val reverse = indexes.map(_.swap)
-    val table = for (i <- 0 until pca.numRows)
+    for (i <- 0 until pca.numRows)
       yield (reverse(i), array(i), array(i + pca.numRows))
+  }
 
-    table
+  def emitResult(result: Seq[(String, Double, Double)]) {
+    result.sortBy(_._1).foreach(tuple =>
+      println(s"${tuple._1}\t\t${tuple._2}\t${tuple._3}"))
+
+    if(conf.outputPath.isDefined) {
+      val resultRdd = sc.parallelize(result)
+      resultRdd.map(tuple => s"${tuple._1}\t${tuple._2}\t${tuple._3}")
+        .saveAsTextFile(conf.outputPath() + "-pca.tsv")
+    }
   }
 
   def stop {
