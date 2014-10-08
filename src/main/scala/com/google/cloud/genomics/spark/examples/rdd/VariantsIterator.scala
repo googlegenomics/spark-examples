@@ -27,7 +27,7 @@ import com.google.api.services.genomics.model.{Variant => VariantModel}
  * Performs the search request and provides the resultant variants.
  */
 class VariantsIterator[K, V](service: Genomics, part: VariantsPartition,
-    builder: RowBuilder[K, V], pageSize: Int = 50)
+    builder: RowBuilder[K, V])
     extends Iterator[(K, V)] {
   // The next page token for the query. If the results span multiple
   // pages, this will hold the next page token. If None, the search is
