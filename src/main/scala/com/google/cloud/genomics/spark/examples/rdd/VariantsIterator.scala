@@ -45,7 +45,6 @@ class VariantsIterator[K, V](service: Genomics, part: VariantsPartition,
       val req = new SearchVariantsRequest()
         .setVariantSetIds(List(part.variantSetId))
         .setReferenceName(part.contig)
-        .setPageSize(pageSize)
         .setStart(java.lang.Long.valueOf(part.start))
         .setEnd(java.lang.Long.valueOf(part.end))
 
