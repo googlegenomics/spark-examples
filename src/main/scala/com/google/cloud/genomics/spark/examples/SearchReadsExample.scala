@@ -130,7 +130,7 @@ object SearchReadsExample2 {
 object SearchReadsExample3 {
   def main(args: Array[String]) = {
     val conf = new GenomicsConf(args)
-    val outPath = conf.outputPath()
+    val outPath = conf.outputPath.orElse(Option("."))()
     val sc = conf.newSparkContext(this.getClass.getName)
     val chr = "21"
     val region = Map((chr -> (1L, Examples.HumanChromosomes(chr))))
@@ -160,7 +160,7 @@ object SearchReadsExample3 {
 object SearchReadsExample4 {
   def main(args: Array[String]) = {
     val conf = new GenomicsConf(args)
-    val outPath = conf.outputPath()
+    val outPath = conf.outputPath.orElse(Option("."))()
     val sc = conf.newSparkContext(this.getClass.getName)
     val chr = "1"
     val region = Map((chr -> (100000000L, 101000000L)))
