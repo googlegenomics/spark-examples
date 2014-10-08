@@ -37,7 +37,6 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
       descr = "Set it to a " +
       "number greater than the number of cores, to achieve maximum " +
       "throughput.")
-  val pageSize = opt[Int](default = Some(50))
   val inputPath = opt[String]()
   val jarPath = opt[String]()
   val clientSecrets = opt[String](default = Some("client_secrets.json"))
