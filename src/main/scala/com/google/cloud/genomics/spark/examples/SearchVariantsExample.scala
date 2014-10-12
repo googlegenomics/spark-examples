@@ -15,19 +15,14 @@ limitations under the License.
 */
 package com.google.cloud.genomics.spark.examples
 
-import collection.JavaConversions._
-import collection.mutable.{ Map => MutableMap }
-import com.google.api.services.genomics.model.SearchVariantsRequest
-import com.google.cloud.genomics.Client
-import com.google.cloud.genomics.spark.examples.rdd.{ VariantsRDDBuilder,
-                                                      VariantsPartitioner,
-                                                      VariantsRDD,
-                                                      FixedContigSplits }
-import org.apache.log4j.{ Level, Logger }
-import org.apache.spark.SparkContext
-import org.apache.spark.SparkContext._
-import com.google.cloud.genomics.spark.examples.rdd.VariantKey
+import org.apache.log4j.Level
+import org.apache.log4j.Logger
+
+import com.google.cloud.genomics.spark.examples.rdd.FixedContigSplits
 import com.google.cloud.genomics.spark.examples.rdd.Variant
+import com.google.cloud.genomics.spark.examples.rdd.VariantKey
+import com.google.cloud.genomics.spark.examples.rdd.VariantsPartitioner
+import com.google.cloud.genomics.spark.examples.rdd.VariantsRDD
 
 object VariantSetIds {
   final val Google_PGP_gVCF_Variants =   "11785686915021445549"
@@ -50,7 +45,8 @@ object SearchVariantsExampleKlotho {
       this.getClass.getName,
       conf.clientSecrets(),
       VariantSetIds.Google_PGP_gVCF_Variants,
-      new VariantsPartitioner(klotho, FixedContigSplits(1)))
+      new VariantsPartitioner(klotho, FixedContigSplits(1)),
+      conf.numRetries())
     data.cache()  // The amount of data is small since its just for one SNP.
     println("We have " + data.count() + " records that overlap Klotho.")
     println("But only " + data.filter { kv =>
@@ -99,7 +95,8 @@ object SearchVariantsExampleBRCA1 {
         this.getClass.getName,
         conf.clientSecrets(),
         VariantSetIds.Google_PGP_gVCF_Variants,
-        new VariantsPartitioner(brca1, FixedContigSplits(1)))
+        new VariantsPartitioner(brca1, FixedContigSplits(1)),
+        conf.numRetries())
     data.cache() // The amount of data is small since its just for one gene
     println("We have " + data.count() + " records that overlap BRCA1.")
     println("But only " + data.filter { kv =>

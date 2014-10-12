@@ -71,7 +71,8 @@ class VariantsPcaDriver(conf: PcaConf) {
       new VariantsRDD(sc, this.getClass.getName, conf.clientSecrets(),
         conf.variantSetId(),
         new VariantsPartitioner(contigs,
-            FixedContigSplits(conf.partitionsPerReference())))
+            FixedContigSplits(conf.partitionsPerReference())),
+        conf.numRetries())
     }
   }
 

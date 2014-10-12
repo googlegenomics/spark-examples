@@ -22,24 +22,25 @@ import org.apache.spark.SparkConf
 import com.google.cloud.genomics.Client
 
 class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
-  val sparkMaster = opt[String](default = Some("local[2]"))
-  val sparkPath = opt[String](default = Some(""))
-  val outputPath = opt[String]()
-  val variantSetId = opt[String](default = Some(VariantSetIds.Google_1000_genomes_phase_1),
-      descr = "VariantSetId to use in the analysis.")
-  val references = opt[String](default=Some("17:41196312:41277500"),
-      descr = "Comma separated tuples of reference:start:end,...")
-  val partitionsPerReference = opt[Int](default = Some(10),
-      descr = "How many partitions per reference. Set it to a " +
-      "number greater than the number of cores, to achieve maximum " +
-      "throughput.")
+  val clientSecrets = opt[String](default = Some("client_secrets.json"))
+  val inputPath = opt[String]()
+  val jarPath = opt[String]()
   val numReducePartitions = opt[Int](default = Some(10),
       descr = "Set it to a " +
       "number greater than the number of cores, to achieve maximum " +
       "throughput.")
-  val inputPath = opt[String]()
-  val jarPath = opt[String]()
-  val clientSecrets = opt[String](default = Some("client_secrets.json"))
+  val numRetries = opt[Int](default = Some(3))
+  val outputPath = opt[String]()
+  val partitionsPerReference = opt[Int](default = Some(10),
+      descr = "How many partitions per reference. Set it to a " +
+      "number greater than the number of cores, to achieve maximum " +
+      "throughput.")
+  val references = opt[String](default=Some("17:41196312:41277500"),
+      descr = "Comma separated tuples of reference:start:end,...")
+  val sparkMaster = opt[String](default = Some("local[2]"))
+  val sparkPath = opt[String](default = Some(""))
+  val variantSetId = opt[String](default = Some(VariantSetIds.Google_1000_genomes_phase_1),
+      descr = "VariantSetId to use in the analysis.")
 
   def newSparkContext(className: String) = {
     val jarPath = if (this.jarPath.isDefined)

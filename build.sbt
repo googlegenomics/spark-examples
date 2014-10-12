@@ -9,7 +9,7 @@ val googleAPIGenomicsVersion = "v1beta-rev34-1.19.0"
 
 val sparkVersion = "1.1.0"
 
-val genomicsUtilsVersion = "0.15"
+val genomicsUtilsVersion = "0.16"
 
 val excludeMortbayJetty = ExclusionRule(organization = "org.mortbay.jetty", name = "servlet-api")
 

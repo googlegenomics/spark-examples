@@ -15,14 +15,16 @@ limitations under the License.
 */
 package com.google.cloud.genomics.spark.examples
 
-import collection.JavaConversions._
-import collection.mutable.{ Map => MutableMap }
-import com.google.api.services.genomics.model.SearchReadsetsRequest
-import com.google.cloud.genomics.Client
-import com.google.cloud.genomics.spark.examples.rdd.{ ReadsRDD, ReadsPartitioner, FixedSplits, TargetSizeSplits }
-import org.apache.log4j.{ Level, Logger }
-import org.apache.spark.SparkContext
+import scala.collection.mutable.{Map => MutableMap}
+
+import org.apache.log4j.Level
+import org.apache.log4j.Logger
 import org.apache.spark.SparkContext._
+
+import com.google.cloud.genomics.spark.examples.rdd.FixedSplits
+import com.google.cloud.genomics.spark.examples.rdd.ReadsPartitioner
+import com.google.cloud.genomics.spark.examples.rdd.ReadsRDD
+import com.google.cloud.genomics.spark.examples.rdd.TargetSizeSplits
 
 object Examples {
 
@@ -78,7 +80,8 @@ object SearchReadsExample1 {
     val region = Map(("11" -> (Examples.Cilantro - 1000, Examples.Cilantro + 1000)))
     val data = new ReadsRDD(sc, this.getClass.getName, conf.clientSecrets(),
       List(Examples.Google_Example_Readset),
-      new ReadsPartitioner(region, FixedSplits(1)))
+      new ReadsPartitioner(region, FixedSplits(1)),
+      conf.numRetries())
       .filter { rk =>
         val (_, read) = rk
         read.position <= Examples.Cilantro && read.position + read.alignedBases.length >= Examples.Cilantro
@@ -116,7 +119,9 @@ object SearchReadsExample2 {
     val region = Map((chr -> (1L, len)))
     val data = new ReadsRDD(sc, this.getClass.getName, conf.clientSecrets(),
       List(Examples.Google_Example_Readset),
-      new ReadsPartitioner(region, TargetSizeSplits(100, 5, 1024, 16 * 1024 * 1024)))
+      new ReadsPartitioner(region, 
+          TargetSizeSplits(100, 5, 1024, 16 * 1024 * 1024)),
+      conf.numRetries())
     val coverage = data.map(_._2.alignedBases.length.toLong)
       .reduce(_ + _).toDouble / len.toDouble
     println("Coverage of chromosome " + chr + " = " + coverage)
@@ -136,7 +141,9 @@ object SearchReadsExample3 {
     val region = Map((chr -> (1L, Examples.HumanChromosomes(chr))))
     val data = new ReadsRDD(sc, this.getClass.getName, conf.clientSecrets(),
       List(Examples.Google_Example_Readset),
-      new ReadsPartitioner(region, TargetSizeSplits(100, 5, 1024, 16 * 1024 * 1024)))
+      new ReadsPartitioner(region, 
+          TargetSizeSplits(100, 5, 1024, 16 * 1024 * 1024)),
+      conf.numRetries())
     data.flatMap { rk =>
       val (_, read) = rk
       val cover = MutableMap[Int, Int]()
@@ -201,7 +208,8 @@ object SearchReadsExample4 {
     //    (100091835,Map(G -> 0.7142857142857143, A -> 0.2, T -> 0.08571428571428572))
     //    (100091836,Map(G -> 0.08333333333333333, A -> 0.7222222222222222, T -> 0.19444444444444445))
     def freqRDD(readsets: List[String], partitioner: ReadsPartitioner) = {
-      new ReadsRDD(sc, this.getClass.getName, conf.clientSecrets(), readsets, partitioner)
+      new ReadsRDD(sc, this.getClass.getName, conf.clientSecrets(), 
+          readsets, partitioner, conf.numRetries())
         .filter(rk => rk._2.mappingQuality >= minMappingQual)
         .flatMap { rk =>
           val (_, read) = rk
