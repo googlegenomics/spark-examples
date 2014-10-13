@@ -21,7 +21,7 @@ import org.apache.spark.Partition
 import org.apache.spark.SparkContext
 import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
-import com.google.api.services.genomics.model.{Read => ReadModel, 
+import com.google.api.services.genomics.model.{Read => ReadModel,
   SearchReadsRequest }
 import com.google.cloud.genomics.Client
 import com.google.cloud.genomics.utils.Paginator
@@ -38,16 +38,16 @@ case class Read(alignedBases: String, baseQuality: String, cigar: String,
     mateReferenceSequenceName: String, name: String, originalBases: String,
     position: Int, readsetId: String, referenceSequenceName: String,
     tags: Map[String, JList[String]], templateLength: Int) extends Serializable
-    
+
 object ReadBuilder {
   def fromJavaRead(r: ReadModel) = {
     val readKey = ReadKey(r.getReferenceSequenceName, r.getPosition.toLong)
-    
-    val read = Read(r.getAlignedBases, 
-        r.getBaseQuality, 
+
+    val read = Read(r.getAlignedBases,
+        r.getBaseQuality,
         r.getCigar,
         r.getFlags,
-        r.getId, 
+        r.getId,
         r.getMappingQuality,
         if (r.containsKey("matePosition"))
           Some(r.getMatePosition)
@@ -71,7 +71,7 @@ object ReadBuilder {
  */
 class ReadsRDD(sc: SparkContext,
                applicationName: String,
-               clientSecretsFile: String,
+               authToken: String,
                readsets: List[String],
                readsPartitioner: ReadsPartitioner,
                numRetries: Int) extends RDD[(ReadKey, Read)](sc, Nil) {
@@ -82,10 +82,10 @@ class ReadsRDD(sc: SparkContext,
     readsPartitioner.getPartitions(readsets)
   }
 
-  override def compute(part: Partition, ctx: TaskContext): 
+  override def compute(part: Partition, ctx: TaskContext):
     Iterator[(ReadKey, Read)] = {
-    val client = Client(applicationName, clientSecretsFile).genomics
-    val reads = Paginator.Reads.create(client, 
+    val client = Client(applicationName, authToken).genomics
+    val reads = Paginator.Reads.create(client,
         RetryPolicy.nAttempts(numRetries))
     val partition = part.asInstanceOf[ReadsPartition]
     val req = new SearchReadsRequest()

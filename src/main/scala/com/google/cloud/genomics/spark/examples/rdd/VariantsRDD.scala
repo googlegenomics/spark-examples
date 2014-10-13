@@ -87,7 +87,7 @@ case class Variant(contig: String, id: String, names: Option[List[String]],
 
 
 object VariantsBuilder {
-  
+
   def build(r: VariantModel) = {
     val variantKey = VariantKey(r.getReferenceName, r.getStart)
 
@@ -141,7 +141,7 @@ object VariantsBuilder {
  */
 class VariantsRDD(sc: SparkContext,
     applicationName: String,
-    clientSecretsFile: String,
+    authToken: String,
     variantSetId: String,
     variantsPartitioner: VariantsPartitioner,
     numRetries: Int) extends RDD[(VariantKey, Variant)](sc, Nil) {
@@ -154,7 +154,7 @@ class VariantsRDD(sc: SparkContext,
 
   override def compute(part: Partition, ctx: TaskContext):
     Iterator[(VariantKey, Variant)] = {
-    val client = Client(applicationName, clientSecretsFile).genomics
+    val client = Client(applicationName, authToken).genomics
     val reads = Paginator.Variants.create(client,
         RetryPolicy.nAttempts(numRetries))
     val partition = part.asInstanceOf[VariantsPartition]

@@ -56,8 +56,9 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
     new SparkContext(conf)
   }
 
-  def newGenomicsClient(application: String) =
-    Client(application, this.clientSecrets()).genomics
+  def newGenomicsClient(application: String, accessToken: String) = {
+    Client(application, accessToken).genomics
+  }
 
   def getReferences = {
     this.references().split(",").map(contig => {

@@ -16,15 +16,14 @@ limitations under the License.
 package com.google.cloud.genomics.spark.examples
 
 import scala.collection.mutable.{Map => MutableMap}
-
 import org.apache.log4j.Level
 import org.apache.log4j.Logger
 import org.apache.spark.SparkContext._
-
 import com.google.cloud.genomics.spark.examples.rdd.FixedSplits
 import com.google.cloud.genomics.spark.examples.rdd.ReadsPartitioner
 import com.google.cloud.genomics.spark.examples.rdd.ReadsRDD
 import com.google.cloud.genomics.spark.examples.rdd.TargetSizeSplits
+import com.google.cloud.genomics.Authentication
 
 object Examples {
 
@@ -75,10 +74,13 @@ object Examples {
 object SearchReadsExample1 {
   def main(args: Array[String]) = {
     val conf = new GenomicsConf(args)
-    val sc = conf.newSparkContext(this.getClass.getName)
+    val applicationName = this.getClass.getName
+    val sc = conf.newSparkContext(applicationName)
     Logger.getLogger("org").setLevel(Level.WARN)
     val region = Map(("11" -> (Examples.Cilantro - 1000, Examples.Cilantro + 1000)))
-    val data = new ReadsRDD(sc, this.getClass.getName, conf.clientSecrets(),
+    val accessToken = Authentication.getAccessToken(applicationName,
+        conf.clientSecrets())
+    val data = new ReadsRDD(sc, applicationName, accessToken,
       List(Examples.Google_Example_Readset),
       new ReadsPartitioner(region, FixedSplits(1)),
       conf.numRetries())
@@ -101,7 +103,7 @@ object SearchReadsExample1 {
     }
     // Collect the results so they are printed on the local console.
     out.collect.foreach(println(_))
-    
+
     println(List.fill((Examples.Cilantro - first).toInt)(" ").foldLeft("")(_ + _) + "^")
     sc.stop
   }
@@ -113,13 +115,16 @@ object SearchReadsExample1 {
 object SearchReadsExample2 {
   def main(args: Array[String]) = {
     val conf = new GenomicsConf(args)
-    val sc = conf.newSparkContext(this.getClass.getName)
+    val applicationName = this.getClass.getName
+    val sc = conf.newSparkContext(applicationName)
     val chr = "21"
     val len = Examples.HumanChromosomes(chr)
     val region = Map((chr -> (1L, len)))
-    val data = new ReadsRDD(sc, this.getClass.getName, conf.clientSecrets(),
+    val accessToken = Authentication.getAccessToken(applicationName,
+        conf.clientSecrets())
+    val data = new ReadsRDD(sc, applicationName, accessToken,
       List(Examples.Google_Example_Readset),
-      new ReadsPartitioner(region, 
+      new ReadsPartitioner(region,
           TargetSizeSplits(100, 5, 1024, 16 * 1024 * 1024)),
       conf.numRetries())
     val coverage = data.map(_._2.alignedBases.length.toLong)
@@ -136,12 +141,15 @@ object SearchReadsExample3 {
   def main(args: Array[String]) = {
     val conf = new GenomicsConf(args)
     val outPath = conf.outputPath.orElse(Option("."))()
-    val sc = conf.newSparkContext(this.getClass.getName)
+    val applicationName = this.getClass.getName
+    val sc = conf.newSparkContext(applicationName)
     val chr = "21"
     val region = Map((chr -> (1L, Examples.HumanChromosomes(chr))))
-    val data = new ReadsRDD(sc, this.getClass.getName, conf.clientSecrets(),
+    val accessToken = Authentication.getAccessToken(applicationName,
+        conf.clientSecrets())
+    val data = new ReadsRDD(sc, applicationName, accessToken,
       List(Examples.Google_Example_Readset),
-      new ReadsPartitioner(region, 
+      new ReadsPartitioner(region,
           TargetSizeSplits(100, 5, 1024, 16 * 1024 * 1024)),
       conf.numRetries())
     data.flatMap { rk =>
@@ -168,7 +176,10 @@ object SearchReadsExample4 {
   def main(args: Array[String]) = {
     val conf = new GenomicsConf(args)
     val outPath = conf.outputPath.orElse(Option("."))()
-    val sc = conf.newSparkContext(this.getClass.getName)
+    val applicationName = this.getClass.getName
+    val accessToken = Authentication.getAccessToken(applicationName,
+        conf.clientSecrets())
+    val sc = conf.newSparkContext(applicationName)
     val chr = "1"
     val region = Map((chr -> (100000000L, 101000000L)))
     val minMappingQual = 30
@@ -208,7 +219,7 @@ object SearchReadsExample4 {
     //    (100091835,Map(G -> 0.7142857142857143, A -> 0.2, T -> 0.08571428571428572))
     //    (100091836,Map(G -> 0.08333333333333333, A -> 0.7222222222222222, T -> 0.19444444444444445))
     def freqRDD(readsets: List[String], partitioner: ReadsPartitioner) = {
-      new ReadsRDD(sc, this.getClass.getName, conf.clientSecrets(), 
+      new ReadsRDD(sc, applicationName, accessToken,
           readsets, partitioner, conf.numRetries())
         .filter(rk => rk._2.mappingQuality >= minMappingQual)
         .flatMap { rk =>
