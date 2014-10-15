@@ -41,10 +41,14 @@ A menu should appear asking you to pick the sample to run:
 ```
 Multiple main classes detected, select one to run:
 
- [1] com.google.cloud.genomics.spark.examples.SearchReadsExample1
- [2] com.google.cloud.genomics.spark.examples.SearchReadsExample2
- [3] com.google.cloud.genomics.spark.examples.SearchReadsExample3
-
+ [1] com.google.cloud.genomics.spark.examples.SearchVariantsExampleKlotho
+ [2] com.google.cloud.genomics.spark.examples.SearchVariantsExampleBRCA1
+ [3] com.google.cloud.genomics.spark.examples.SearchReadsExample1
+ [4] com.google.cloud.genomics.spark.examples.SearchReadsExample2
+ [5] com.google.cloud.genomics.spark.examples.SearchReadsExample3
+ [6] com.google.cloud.genomics.spark.examples.SearchReadsExample4
+ [7] com.google.cloud.genomics.spark.examples.VariantsPcaDriver
+ 
 Enter number:
 ```
 
@@ -57,7 +61,7 @@ export SBT_OPTS='-XX:MaxPermSize=256m'
 
 Cluster Run
 -----------
-_SearchReadsExample3_ produces output files and therefore requires HDFS. Be sure to update the `Examples.outputPath` value to point to your HDFS master (e.g. _hdfs://namenode:9000/path_). Refer to the Spark [documentation](http://spark.apache.org/docs/0.9.1/spark-standalone.html#running-alongside-hadoop) for more information.
+_SearchReadsExample3_ produces output files and therefore requires HDFS. Be sure to specify the `--output-path` flag to point to your HDFS master (e.g. _hdfs://namenode:9000/path_). Refer to the Spark [documentation](http://spark.apache.org/docs/0.9.1/spark-standalone.html#running-alongside-hadoop) for more information.
 
 
 Now generate the self-contained `googlegenomics-spark-examples-assembly-1.0.jar`
@@ -70,7 +74,7 @@ which can be found in the _spark-examples/target/scala-2.10_ directory. Ensure t
 
 Run on Google Compute Engine
 -----------------------------
-Follow the [instructions](https://groups.google.com/forum/#!topic/gcp-hadoop-announce/EfQms8tK5cE) to setup Google Cloud and install the Cloud SDK. At the end of the process you should be able to launch a test instance and login into it using gcutil.
+Follow the [instructions](https://groups.google.com/forum/#!topic/gcp-hadoop-announce/EfQms8tK5cE) to setup Google Cloud and install the Cloud SDK. At the end of the process you should be able to launch a test instance and login into it using `gcutil`.
 
 
 Create a Google Cloud Storage bucket to store the configuration of the cluster.
@@ -86,16 +90,11 @@ Run [bdutil](https://groups.google.com/forum/#!topic/gcp-hadoop-announce/EfQms8t
 
 ```
 
-Upload the following files to provide the workers with appropriate credentials.
+Upload the `client_secrets.json` file to the master node.
 
 ```
-gcutil push --ssh_user=hadoop hadoop-m ~/.store client_secrets.json .
-
-for i in {0..1}; do 
- gcutil push --ssh_user=hadoop hadoop-w-$i ~/.store client_secrets.json .; 
-done
+gcutil push --ssh_user=hadoop hadoop-m client_secrets.json .
 ```
-(This step assumes thad you already ran the example locally and generated the credentials.)
 
 Upload the assembly jar to the master node.
 ```
@@ -117,6 +116,9 @@ spark-class com.google.cloud.genomics.spark.examples.SearchReadsExample1 \
 --spark-master spark://hadoop-m:7077 \
 --jar-path googlegenomics-spark-examples-assembly-1.0.jar
 ```
+
+When prompted copy the authentication URL to a browser, authorize the application and copy 
+the authorization code. This step will copy the access token to all the workers.
 
 The --jar-path will take care of copying the jar to all the workers before launching the tasks.
 

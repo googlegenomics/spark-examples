@@ -29,7 +29,11 @@ import org.apache.spark.rdd.RDD
 import com.google.api.services.genomics.Genomics
 import com.google.api.services.genomics.model.{Call => CallModel}
 import com.google.api.services.genomics.model.{Variant => VariantModel}
+import com.google.api.services.genomics.model.SearchVariantsRequest
+import com.google.api.services.genomics.model.SearchVariantsResponse
 import com.google.cloud.genomics.Client
+import com.google.cloud.genomics.utils.Paginator
+import com.google.cloud.genomics.utils.RetryPolicy
 
 /**
  * A serializable version of the Variant.
@@ -81,8 +85,9 @@ case class Variant(contig: String, id: String, names: Option[List[String]],
   }
 }
 
-class VariantsRDDBuilder extends RowBuilder[VariantKey, Variant] {
-  @Override
+
+object VariantsBuilder {
+
   def build(r: VariantModel) = {
     val variantKey = VariantKey(r.getReferenceName, r.getStart)
 
@@ -136,10 +141,10 @@ class VariantsRDDBuilder extends RowBuilder[VariantKey, Variant] {
  */
 class VariantsRDD(sc: SparkContext,
     applicationName: String,
-    clientSecretsFile: String,
+    authToken: String,
     variantSetId: String,
-    variantsPartitioner: VariantsPartitioner)
-    extends RDD[(VariantKey, Variant)](sc, Nil) {
+    variantsPartitioner: VariantsPartitioner,
+    numRetries: Int) extends RDD[(VariantKey, Variant)](sc, Nil) {
 
   override val partitioner = Some(variantsPartitioner)
 
@@ -148,10 +153,17 @@ class VariantsRDD(sc: SparkContext,
   }
 
   override def compute(part: Partition, ctx: TaskContext):
-  Iterator[(VariantKey, Variant)] = {
-    new VariantsIterator[VariantKey, Variant](Client(applicationName,
-            clientSecretsFile).genomics, part.asInstanceOf[VariantsPartition],
-            new VariantsRDDBuilder())
+    Iterator[(VariantKey, Variant)] = {
+    val client = Client(applicationName, authToken).genomics
+    val reads = Paginator.Variants.create(client,
+        RetryPolicy.nAttempts(numRetries))
+    val partition = part.asInstanceOf[VariantsPartition]
+    val req = new SearchVariantsRequest()
+      .setVariantSetIds(List(partition.variantSetId))
+      .setReferenceName(partition.contig)
+      .setStart(java.lang.Long.valueOf(partition.start))
+      .setEnd(java.lang.Long.valueOf(partition.end))
+    reads.search(req).iterator().map(VariantsBuilder.build(_))
   }
 }
 

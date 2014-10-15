@@ -16,16 +16,16 @@ limitations under the License.
 package com.google.cloud.genomics.spark.examples.rdd
 
 import java.util.{List => JList}
-
-import scala.collection.JavaConversions.mapAsScalaMap
-
+import collection.JavaConversions._
 import org.apache.spark.Partition
 import org.apache.spark.SparkContext
 import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
-
-import com.google.api.services.genomics.model.{Read => ReadModel}
+import com.google.api.services.genomics.model.{Read => ReadModel,
+  SearchReadsRequest }
 import com.google.cloud.genomics.Client
+import com.google.cloud.genomics.utils.Paginator
+import com.google.cloud.genomics.utils.RetryPolicy
 
 /**
  * A serializable version of the Read.
@@ -38,16 +38,16 @@ case class Read(alignedBases: String, baseQuality: String, cigar: String,
     mateReferenceSequenceName: String, name: String, originalBases: String,
     position: Int, readsetId: String, referenceSequenceName: String,
     tags: Map[String, JList[String]], templateLength: Int) extends Serializable
-    
+
 object ReadBuilder {
   def fromJavaRead(r: ReadModel) = {
     val readKey = ReadKey(r.getReferenceSequenceName, r.getPosition.toLong)
-    
-    val read = Read(r.getAlignedBases, 
-        r.getBaseQuality, 
+
+    val read = Read(r.getAlignedBases,
+        r.getBaseQuality,
         r.getCigar,
         r.getFlags,
-        r.getId, 
+        r.getId,
         r.getMappingQuality,
         if (r.containsKey("matePosition"))
           Some(r.getMatePosition)
@@ -71,9 +71,10 @@ object ReadBuilder {
  */
 class ReadsRDD(sc: SparkContext,
                applicationName: String,
-               clientSecretsFile: String,
+               authToken: String,
                readsets: List[String],
-               readsPartitioner: ReadsPartitioner) extends RDD[(ReadKey, Read)](sc, Nil) {
+               readsPartitioner: ReadsPartitioner,
+               numRetries: Int) extends RDD[(ReadKey, Read)](sc, Nil) {
 
   override val partitioner = Some(readsPartitioner)
 
@@ -81,9 +82,18 @@ class ReadsRDD(sc: SparkContext,
     readsPartitioner.getPartitions(readsets)
   }
 
-  override def compute(part: Partition, ctx: TaskContext): Iterator[(ReadKey, Read)] = {
-    new ReadsIterator(Client(applicationName, clientSecretsFile).genomics, 
-        part.asInstanceOf[ReadsPartition])
+  override def compute(part: Partition, ctx: TaskContext):
+    Iterator[(ReadKey, Read)] = {
+    val client = Client(applicationName, authToken).genomics
+    val reads = Paginator.Reads.create(client,
+        RetryPolicy.nAttempts(numRetries))
+    val partition = part.asInstanceOf[ReadsPartition]
+    val req = new SearchReadsRequest()
+      .setReadsetIds(partition.readsets)
+      .setSequenceName(partition.sequence)
+      .setSequenceStart(java.math.BigInteger.valueOf(partition.start))
+      .setSequenceEnd(java.math.BigInteger.valueOf(partition.end))
+    reads.search(req).iterator().map(ReadBuilder.fromJavaRead(_))
   }
 }
 

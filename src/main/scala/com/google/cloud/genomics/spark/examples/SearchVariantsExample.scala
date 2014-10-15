@@ -15,19 +15,14 @@ limitations under the License.
 */
 package com.google.cloud.genomics.spark.examples
 
-import collection.JavaConversions._
-import collection.mutable.{ Map => MutableMap }
-import com.google.api.services.genomics.model.SearchVariantsRequest
-import com.google.cloud.genomics.Client
-import com.google.cloud.genomics.spark.examples.rdd.{ VariantsRDDBuilder,
-                                                      VariantsPartitioner,
-                                                      VariantsRDD,
-                                                      FixedContigSplits }
-import org.apache.log4j.{ Level, Logger }
-import org.apache.spark.SparkContext
-import org.apache.spark.SparkContext._
-import com.google.cloud.genomics.spark.examples.rdd.VariantKey
+import org.apache.log4j.Level
+import org.apache.log4j.Logger
+import com.google.cloud.genomics.spark.examples.rdd.FixedContigSplits
 import com.google.cloud.genomics.spark.examples.rdd.Variant
+import com.google.cloud.genomics.spark.examples.rdd.VariantKey
+import com.google.cloud.genomics.spark.examples.rdd.VariantsPartitioner
+import com.google.cloud.genomics.spark.examples.rdd.VariantsRDD
+import com.google.cloud.genomics.Authentication
 
 object VariantSetIds {
   final val Google_PGP_gVCF_Variants =   "11785686915021445549"
@@ -43,14 +38,18 @@ object VariantSetIds {
 object SearchVariantsExampleKlotho {
   def main(args: Array[String]) = {
     val conf = new GenomicsConf(args)
-    val sc = conf.newSparkContext(this.getClass.getName)
+    val applicationName = this.getClass.getName
+    val sc = conf.newSparkContext(applicationName)
     Logger.getLogger("org").setLevel(Level.WARN)
     val klotho = Map(("13" -> (33628138L, 33628139L)))
+    val accessToken = Authentication.getAccessToken(applicationName,
+      conf.clientSecrets())
     val data = new VariantsRDD(sc,
-      this.getClass.getName,
-      conf.clientSecrets(),
+      applicationName,
+      accessToken,
       VariantSetIds.Google_PGP_gVCF_Variants,
-      new VariantsPartitioner(klotho, FixedContigSplits(1)))
+      new VariantsPartitioner(klotho, FixedContigSplits(1)),
+      conf.numRetries())
     data.cache()  // The amount of data is small since its just for one SNP.
     println("We have " + data.count() + " records that overlap Klotho.")
     println("But only " + data.filter { kv =>
@@ -89,17 +88,18 @@ object SearchVariantsExampleKlotho {
 object SearchVariantsExampleBRCA1 {
   def main(args: Array[String]) = {
     val conf = new GenomicsConf(args)
-    val sc = conf.newSparkContext(this.getClass.getName)
+    val applicationName = this.getClass.getName
+    val sc = conf.newSparkContext(applicationName)
     Logger.getLogger("org").setLevel(Level.WARN)
     val brca1 = Map(("17" -> (41196312L, 41277500L)))
-    val data = if (conf.inputPath.isDefined)
-      sc.objectFile[(VariantKey, Variant)](conf.inputPath())
-    else
-      new VariantsRDD(sc,
+    val accessToken = Authentication.getAccessToken(applicationName,
+      conf.clientSecrets())
+    val data = new VariantsRDD(sc,
         this.getClass.getName,
-        conf.clientSecrets(),
+        accessToken,
         VariantSetIds.Google_PGP_gVCF_Variants,
-        new VariantsPartitioner(brca1, FixedContigSplits(1)))
+        new VariantsPartitioner(brca1, FixedContigSplits(1)),
+        conf.numRetries())
     data.cache() // The amount of data is small since its just for one gene
     println("We have " + data.count() + " records that overlap BRCA1.")
     println("But only " + data.filter { kv =>
