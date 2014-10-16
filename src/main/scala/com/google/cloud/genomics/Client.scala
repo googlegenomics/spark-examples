@@ -22,6 +22,7 @@ import com.google.api.client.googleapis.extensions.java6.auth.oauth2.GooglePromp
 import com.google.api.services.genomics.Genomics
 import com.google.cloud.genomics.utils.GenomicsFactory
 import com.google.common.base.Suppliers
+import scala.util.{Try, Success, Failure}
 
 object Authentication {
   def getAccessToken(applicationName: String, clientSecretsFile: String) = {
@@ -34,8 +35,17 @@ object Authentication {
 
 object Client {
   def apply(applicationName: String, accessToken: String): Client = {
-    val factory = GenomicsFactory.builder(applicationName)
-      .setReadTimeout(60000).build()
+    // An IOException can occur when multiple workers on the same machine try to
+    // create the directory to hold the stored credentials.
+    val factory = Try(GenomicsFactory.builder(applicationName)
+      .setReadTimeout(60000).build()) match {
+         case Success(f) => f
+         case Failure(ex) => {
+           // Try one more time.
+           GenomicsFactory.builder(applicationName)
+             .setReadTimeout(60000).build()
+          }
+      }
     val service = factory.fromCredential(
         new GoogleCredential().setAccessToken(accessToken))
     new Client(service)
