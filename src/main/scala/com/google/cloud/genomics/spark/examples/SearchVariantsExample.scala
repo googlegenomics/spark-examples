@@ -26,7 +26,7 @@ import com.google.cloud.genomics.Authentication
 
 object VariantSetIds {
   final val Google_PGP_gVCF_Variants =   "11785686915021445549"
-  final val Google_1000_genomes_phase_1 = "1154144306496329440"
+  final val Google_1000_genomes_phase_1 = "10473108253681171589"
 }
 
 /**

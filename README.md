@@ -83,7 +83,7 @@ Create a Google Cloud Storage bucket to store the configuration of the cluster.
 gsutil mb gs://<bucket-name>
 ```
 
-Run [bdutil](https://groups.google.com/forum/#!topic/gcp-hadoop-announce/EfQms8tK5cE) to create a Spark cluster.
+Run [Click-to-deploy Hadoop](https://cloud.google.com/solutions/hadoop/click-to-deploy) or use [bdutil](https://groups.google.com/forum/#!topic/gcp-hadoop-announce/EfQms8tK5cE) directly to create a Spark cluster.
 
 ```
 ./bdutil -e extensions/spark/spark_env.sh -b <configbucket> deploy
@@ -93,26 +93,25 @@ Run [bdutil](https://groups.google.com/forum/#!topic/gcp-hadoop-announce/EfQms8t
 Upload the `client_secrets.json` file to the master node.
 
 ```
-gcutil push --ssh_user=hadoop hadoop-m client_secrets.json .
+gcutil push hadoop-m client_secrets.json .
 ```
 
 Upload the assembly jar to the master node.
 ```
-gcutil push --ssh_user=hadoop hadoop-m \
-target/scala-2.10/googlegenomics-spark-examples-assembly-1.0.jar .
+gcutil push hadoop-m target/scala-2.10/googlegenomics-spark-examples-assembly-1.0.jar .
 ```
 
 To run the examples on GCE, login to the master node and launch the examples using the `scala-class` script.
 ```bash
 # Login into the master node
-gcutil ssh --ssh_user=hadoop hadoop-m
+gcutil ssh hadoop-m
 
 # Add the jar to the classpath
 export SPARK_CLASSPATH=googlegenomics-spark-examples-assembly-1.0.jar
 
 # Run the examples
 spark-class com.google.cloud.genomics.spark.examples.SearchReadsExample1 \
---client-secrets /home/hadoop/client_secrets.json \ 
+--client-secrets client_secrets.json \ 
 --spark-master spark://hadoop-m:7077 \
 --jar-path googlegenomics-spark-examples-assembly-1.0.jar
 ```
