@@ -35,7 +35,7 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
       descr = "How many partitions per reference. Set it to a " +
       "number greater than the number of cores, to achieve maximum " +
       "throughput.")
-  val references = opt[String](default=Some("17:41196312:41277500"),
+  val references = opt[String](default=Some("17:41196311:41277499"),
       descr = "Comma separated tuples of reference:start:end,...")
   val sparkMaster = opt[String](default = Some("local[2]"))
   val sparkPath = opt[String](default = Some(""))
