@@ -24,6 +24,7 @@ libraryDependencies ++= Seq(
   "com.google.http-client" % "google-http-client" % googleAPIVersion,
   "com.google.http-client" % "google-http-client-jackson2" % googleAPIVersion,
   "com.google.cloud.genomics" % "google-genomics-utils" % genomicsUtilsVersion,
+  "io.reactivex" %% "rxscala" % "0.21.1",
   "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "provided",
   "org.rogach" %% "scallop" % "0.9.5",

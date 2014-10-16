@@ -32,6 +32,7 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
       descr = "Set it to a " +
       "number greater than the number of cores, to achieve maximum " +
       "throughput.")
+  val numThreads = opt[Int](default = Some(1))
   val outputPath = opt[String]()
   val partitionsPerReference = opt[Int](default = Some(10),
       descr = "How many partitions per reference. Set it to a " +
