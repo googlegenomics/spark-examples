@@ -24,9 +24,10 @@ import com.google.cloud.genomics.spark.examples.rdd.VariantsPartitioner
 import com.google.cloud.genomics.spark.examples.rdd.VariantsRDD
 import com.google.cloud.genomics.Authentication
 
-object VariantSetIds {
-  final val Google_PGP_gVCF_Variants =   "11785686915021445549"
-  final val Google_1000_genomes_phase_1 = "10473108253681171589"
+object GoogleGenomicsPublicData {
+  final val Platinum_Genomes =   "3049512673186936334"
+  final val Thousand_Genomes_Phase_1 = "10473108253681171589"
+  final val Thousand_Genomes_Phase_3 = "4252737135923902652"
 }
 
 /**
@@ -41,24 +42,24 @@ object SearchVariantsExampleKlotho {
     val applicationName = this.getClass.getName
     val sc = conf.newSparkContext(applicationName)
     Logger.getLogger("org").setLevel(Level.WARN)
-    val klotho = Map(("13" -> (33628138L, 33628139L)))
+    val klotho = Map(("chr13" -> (33628137L, 33628138L)))
     val accessToken = Authentication.getAccessToken(applicationName,
       conf.clientSecrets())
     val data = new VariantsRDD(sc,
       applicationName,
       accessToken,
-      VariantSetIds.Google_PGP_gVCF_Variants,
+      GoogleGenomicsPublicData.Platinum_Genomes,
       new VariantsPartitioner(klotho, FixedContigSplits(1)),
       conf.numRetries())
     data.cache()  // The amount of data is small since its just for one SNP.
     println("We have " + data.count() + " records that overlap Klotho.")
     println("But only " + data.filter { kv =>
                                         val (key, variant) = kv
-                                        variant.referenceBases != "N"
+                                        variant.alternateBases != None
       }.count() + " records are of a variant.")
     println("The other " + data.filter { kv =>
                                          val (key, variant) = kv
-                                         variant.referenceBases == "N"
+                                         variant.alternateBases == None
       }.count() + " records are reference-matching blocks.")
     val variants = data.filter { kv =>
                                  val(key, variant) = kv
@@ -91,13 +92,13 @@ object SearchVariantsExampleBRCA1 {
     val applicationName = this.getClass.getName
     val sc = conf.newSparkContext(applicationName)
     Logger.getLogger("org").setLevel(Level.WARN)
-    val brca1 = Map(("17" -> (41196312L, 41277500L)))
+    val brca1 = Map(("chr17" -> (41196311L, 41277499L)))
     val accessToken = Authentication.getAccessToken(applicationName,
       conf.clientSecrets())
     val data = new VariantsRDD(sc,
         this.getClass.getName,
         accessToken,
-        VariantSetIds.Google_PGP_gVCF_Variants,
+        GoogleGenomicsPublicData.Platinum_Genomes,
         new VariantsPartitioner(brca1, FixedContigSplits(1)),
         conf.numRetries())
     data.cache() // The amount of data is small since its just for one gene

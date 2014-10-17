@@ -39,7 +39,8 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
       descr = "Comma separated tuples of reference:start:end,...")
   val sparkMaster = opt[String](default = Some("local[2]"))
   val sparkPath = opt[String](default = Some(""))
-  val variantSetId = opt[String](default = Some(VariantSetIds.Google_1000_genomes_phase_1),
+  val variantSetId = opt[String](
+    default = Some(GoogleGenomicsPublicData.Thousand_Genomes_Phase_1),
       descr = "VariantSetId to use in the analysis.")
 
   def newSparkContext(className: String) = {

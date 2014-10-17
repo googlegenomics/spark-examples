@@ -102,7 +102,10 @@ object VariantsBuilder {
                 else
                   None,
                 c.getPhaseset,
-                c.getInfo.toMap)))
+                if (c.containsKey("info"))
+                  c.getInfo.toMap
+                else
+                  Map[String,java.util.List[String]]())))
       else
         None
 
@@ -123,7 +126,10 @@ object VariantsBuilder {
           Some(r.getAlternateBases.toList)
         else
           None,
-        r.getInfo.toMap,
+        if (r.containsKey("info"))
+          r.getInfo.toMap
+        else
+          Map[String,java.util.List[String]](),
         if (r.containsKey("created"))
           r.getCreated
         else
