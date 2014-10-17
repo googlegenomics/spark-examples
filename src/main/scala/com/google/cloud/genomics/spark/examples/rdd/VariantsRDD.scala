@@ -102,7 +102,10 @@ object VariantsBuilder {
                 else
                   None,
                 c.getPhaseset,
-                c.getInfo.toMap)))
+                if (c.containsKey("info"))
+                  c.getInfo.toMap
+                else
+                  Map[String,java.util.List[String]]())))
       else
         None
 
