@@ -126,7 +126,10 @@ object VariantsBuilder {
           Some(r.getAlternateBases.toList)
         else
           None,
-        r.getInfo.toMap,
+        if (r.containsKey("info"))
+          r.getInfo.toMap
+        else
+          Map[String,java.util.List[String]](),
         if (r.containsKey("created"))
           r.getCreated
         else
