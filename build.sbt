@@ -26,7 +26,8 @@ libraryDependencies ++= Seq(
   "com.google.cloud.genomics" % "google-genomics-utils" % genomicsUtilsVersion,
   "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "provided",
-  "org.rogach" %% "scallop" % "0.9.5"
+  "org.rogach" %% "scallop" % "0.9.5",
+  "org.scalatest" %% "scalatest" % "2.2.1" % "test"
 )
 
 resolvers ++= Seq(

@@ -23,6 +23,8 @@ import com.google.cloud.genomics.Client
 import com.google.cloud.genomics.Auth
 
 class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
+  val basesPerPartition = opt[Int](default = Some(100000),
+      descr = "Partition each reference using a fixed number of bases")
   val clientSecrets = opt[String](default = Some("client_secrets.json"))
   val inputPath = opt[String]()
   val jarPath = opt[String]()

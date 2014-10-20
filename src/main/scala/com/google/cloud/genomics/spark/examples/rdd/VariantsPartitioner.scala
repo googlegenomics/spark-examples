@@ -22,10 +22,10 @@ import collection.immutable.TreeMap
  * Describes partitions for a set of contigs and their ranges.
  */
 class VariantsPartitioner(variants: Map[String, (Long, Long)],
-    splitter: ContigSplitter) extends Partitioner {
+    splitter: ReferenceSplitter) extends Partitioner {
   // Maps contig name to partition count.
   final val parts = TreeMap[String, Int]() ++
-    (variants.map(kv => (kv._1, splitter.splits(kv._2._2 - kv._2._1))).toMap)
+    (variants.map(kv => (kv._1, splitter.getNumberOfSplits(kv._2._2 - kv._2._1))).toMap)
 
   // Total partition count.
   final val count = parts.foldLeft(0)(_ + _._2)
@@ -64,16 +64,32 @@ class VariantsPartitioner(variants: Map[String, (Long, Long)],
 }
 
 /**
- * Used to describe how a contig should be partitioned.
+ * Used to determine the number of parts in which a reference should be splitted.
+ *
+ * @param referenceSize the size of the reference to be split.
+ * @return the number of parts into which this reference should be splitted.
  */
-trait ContigSplitter {
-  def splits(upperBound: Long): Int
+trait ReferenceSplitter {
+  def getNumberOfSplits(referenceSize: Long): Int
 }
 
 /**
- * Used to split a contig into a fixed number of partitions.
+ * Split a reference in a constant number of parts no matter the reference size.
+ * If the number of requested splits is smaller than the reference size, return
+ * the reference size.
  */
-case class FixedContigSplits(numSplits: Int) extends ContigSplitter {
-  def splits(upperBound: Long): Int = math.min(upperBound,
-      numSplits).toInt
+case class FixedSplitsPerReference(numSplits: Int) extends ReferenceSplitter {
+  def getNumberOfSplits(referenceSize: Long): Int = math.min(
+      referenceSize, numSplits).toInt
+}
+
+/**
+ * Split a reference using a constant number of bases per reference.
+ * If the number of bases is smaller than the reference size return one split.
+ */
+case class FixedBasesPerReference(numBases: Int) extends ReferenceSplitter {
+  def getNumberOfSplits(referenceSize: Long): Int =  {
+    val bases = math.min(referenceSize, numBases)
+    math.ceil(referenceSize / bases.toDouble).toInt
+  }
 }
