@@ -16,25 +16,54 @@ limitations under the License.
 package com.google.cloud.genomics
 
 import java.io.File
+import java.io.FileReader
+import java.io.StringReader
 
+import scala.util.{Try, Success, Failure}
+
+import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential
 import com.google.api.client.googleapis.extensions.java6.auth.oauth2.GooglePromptReceiver
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
+import com.google.api.client.json.jackson2.JacksonFactory
 import com.google.api.services.genomics.Genomics
 import com.google.cloud.genomics.utils.GenomicsFactory
 import com.google.common.base.Suppliers
-import scala.util.{Try, Success, Failure}
+
+class Auth(val clientSecrets: String,
+    val accessToken: String,
+    val refreshToken: String) extends Serializable
 
 object Authentication {
   def getAccessToken(applicationName: String, clientSecretsFile: String) = {
     val verificationCodeReceiver = Suppliers.ofInstance(new GooglePromptReceiver())
     val factory = GenomicsFactory.builder(applicationName)
       .setVerificationCodeReceiver(verificationCodeReceiver).build()
-    factory.makeCredential(new File(clientSecretsFile)).getAccessToken()
+    val credential = factory.makeCredential(new File(clientSecretsFile))
+    val jsonFactory = JacksonFactory.getDefaultInstance()
+    val clientSecrets = GoogleClientSecrets.load(jsonFactory,
+        new FileReader(clientSecretsFile))
+    new Auth(clientSecrets.toString(), credential.getAccessToken(),
+        credential.getRefreshToken())
   }
 }
 
 object Client {
-  def apply(applicationName: String, accessToken: String): Client = {
+
+  private def createCredentialWithRefreshToken(auth: Auth) = {
+    val jsonFactory = JacksonFactory.getDefaultInstance()
+    val clientSecrets = GoogleClientSecrets.load(jsonFactory,
+        new StringReader(auth.clientSecrets))
+    val transport = GoogleNetHttpTransport.newTrustedTransport()
+    new GoogleCredential.Builder().setTransport(transport)
+        .setJsonFactory(jsonFactory)
+        .setClientSecrets(clientSecrets)
+        .build()
+        .setAccessToken(auth.accessToken)
+        .setRefreshToken(auth.refreshToken);
+  }
+
+  def apply(applicationName: String, auth: Auth): Client = {
     // An IOException can occur when multiple workers on the same machine try to
     // create the directory to hold the stored credentials.
     val factory = Try(GenomicsFactory.builder(applicationName)
@@ -46,8 +75,7 @@ object Client {
              .setReadTimeout(60000).build()
           }
       }
-    val service = factory.fromCredential(
-        new GoogleCredential().setAccessToken(accessToken))
+    val service = factory.fromCredential(createCredentialWithRefreshToken(auth))
     new Client(service)
   }
 }

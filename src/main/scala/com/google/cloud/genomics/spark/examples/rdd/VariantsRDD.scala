@@ -22,15 +22,13 @@ import scala.collection.JavaConversions._
 
 import org.apache.spark.Partition
 import org.apache.spark.SparkContext
-import org.apache.spark.SparkContext._
 import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
 
-import com.google.api.services.genomics.Genomics
 import com.google.api.services.genomics.model.{Call => CallModel}
-import com.google.api.services.genomics.model.{Variant => VariantModel}
 import com.google.api.services.genomics.model.SearchVariantsRequest
-import com.google.api.services.genomics.model.SearchVariantsResponse
+import com.google.api.services.genomics.model.{Variant => VariantModel}
+import com.google.cloud.genomics.Auth
 import com.google.cloud.genomics.Client
 import com.google.cloud.genomics.utils.Paginator
 import com.google.cloud.genomics.utils.RetryPolicy
@@ -147,7 +145,7 @@ object VariantsBuilder {
  */
 class VariantsRDD(sc: SparkContext,
     applicationName: String,
-    authToken: String,
+    auth: Auth,
     variantSetId: String,
     variantsPartitioner: VariantsPartitioner,
     numRetries: Int) extends RDD[(VariantKey, Variant)](sc, Nil) {
@@ -160,7 +158,7 @@ class VariantsRDD(sc: SparkContext,
 
   override def compute(part: Partition, ctx: TaskContext):
     Iterator[(VariantKey, Variant)] = {
-    val client = Client(applicationName, authToken).genomics
+    val client = Client(applicationName, auth).genomics
     val reads = Paginator.Variants.create(client,
         RetryPolicy.nAttempts(numRetries))
     val partition = part.asInstanceOf[VariantsPartition]

@@ -55,11 +55,11 @@ class VariantsPcaDriver(conf: PcaConf) {
 
   val applicationName = this.getClass.getName
   val sc = conf.newSparkContext(this.getClass.getName)
-  val accessToken = Authentication.getAccessToken(applicationName,
+  val auth = Authentication.getAccessToken(applicationName,
     conf.clientSecrets())
 
   val indexes: Map[String, Int] = {
-    val client = conf.newGenomicsClient(applicationName, accessToken)
+    val client = conf.newGenomicsClient(applicationName, auth)
     val searchCallsets = Paginator.Callsets.create(client)
     val req = new SearchCallSetsRequest()
         .setVariantSetIds(List(conf.variantSetId()))
@@ -72,7 +72,7 @@ class VariantsPcaDriver(conf: PcaConf) {
       sc.objectFile[(VariantKey, Variant)](conf.inputPath())
     } else {
       val contigs = conf.getReferences
-      new VariantsRDD(sc, this.getClass.getName, accessToken,
+      new VariantsRDD(sc, this.getClass.getName, auth,
         conf.variantSetId(),
         new VariantsPartitioner(contigs,
             FixedContigSplits(conf.partitionsPerReference())),

@@ -16,13 +16,17 @@ limitations under the License.
 package com.google.cloud.genomics.spark.examples.rdd
 
 import java.util.{List => JList}
-import collection.JavaConversions._
+
+import scala.collection.JavaConversions._
+
 import org.apache.spark.Partition
 import org.apache.spark.SparkContext
 import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
-import com.google.api.services.genomics.model.{Read => ReadModel,
-  SearchReadsRequest }
+
+import com.google.api.services.genomics.model.{Read => ReadModel}
+import com.google.api.services.genomics.model.SearchReadsRequest
+import com.google.cloud.genomics.Auth
 import com.google.cloud.genomics.Client
 import com.google.cloud.genomics.utils.Paginator
 import com.google.cloud.genomics.utils.RetryPolicy
@@ -71,7 +75,7 @@ object ReadBuilder {
  */
 class ReadsRDD(sc: SparkContext,
                applicationName: String,
-               authToken: String,
+               auth: Auth,
                readsets: List[String],
                readsPartitioner: ReadsPartitioner,
                numRetries: Int) extends RDD[(ReadKey, Read)](sc, Nil) {
@@ -84,7 +88,7 @@ class ReadsRDD(sc: SparkContext,
 
   override def compute(part: Partition, ctx: TaskContext):
     Iterator[(ReadKey, Read)] = {
-    val client = Client(applicationName, authToken).genomics
+    val client = Client(applicationName, auth).genomics
     val reads = Paginator.Reads.create(client,
         RetryPolicy.nAttempts(numRetries))
     val partition = part.asInstanceOf[ReadsPartition]
