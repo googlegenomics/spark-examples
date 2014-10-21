@@ -20,6 +20,7 @@ import org.apache.spark.SparkContext
 import org.rogach.scallop.ScallopConf
 import org.apache.spark.SparkConf
 import com.google.cloud.genomics.Client
+import com.google.cloud.genomics.Auth
 
 class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
   val clientSecrets = opt[String](default = Some("client_secrets.json"))
@@ -57,8 +58,8 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
     new SparkContext(conf)
   }
 
-  def newGenomicsClient(application: String, accessToken: String) = {
-    Client(application, accessToken).genomics
+  def newGenomicsClient(application: String, auth: Auth) = {
+    Client(application, auth).genomics
   }
 
   def getReferences = {
