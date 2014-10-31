@@ -59,19 +59,6 @@ If you are seeing `java.lang.OutOfMemoryError: PermGen space` errors, set the fo
 export SBT_OPTS='-XX:MaxPermSize=256m'
 ``` 
 
-Cluster Run
------------
-_SearchReadsExample3_ produces output files and therefore requires HDFS. Be sure to specify the `--output-path` flag to point to your HDFS master (e.g. _hdfs://namenode:9000/path_). Refer to the Spark [documentation](http://spark.apache.org/docs/0.9.1/spark-standalone.html#running-alongside-hadoop) for more information.
-
-
-Now generate the self-contained `googlegenomics-spark-examples-assembly-1.0.jar`
-```
-  cd spark-examples
-  sbt assembly
-```
-which can be found in the _spark-examples/target/scala-2.10_ directory. Ensure this JAR is copied to all workers at the same location. Run the examples as above.
-
-
 Run on Google Compute Engine
 -----------------------------
 Follow the [instructions](https://groups.google.com/forum/#!topic/gcp-hadoop-announce/EfQms8tK5cE) to setup Google Cloud and install the Cloud SDK. At the end of the process you should be able to launch a test instance and login into it using `gcutil`.
@@ -121,6 +108,54 @@ the authorization code. This step will copy the access token to all the workers.
 
 The --jar-path will take care of copying the jar to all the workers before launching the tasks.
 
+### Running PCA variant analysis on GCE
+To run the [variant PCA analysis](https://github.com/googlegenomics/spark-examples/blob/master/src/main/scala/com/google/cloud/genomics/spark/examples/VariantsPca.scala) on GCE  make sure you have followed all the steps on the previous section and that you are able to run at least one of the examples.
+
+Run the example PCA analysis for BCRA1 on the [1000 Genomes Project dataset](https://cloud.google.com/genomics/data/1000-genomes).
+```
+export SPARK_CLASSPATH=googlegenomics-spark-examples-assembly-1.0.jar
+com.google.cloud.genomics.spark.examples.VariantsPcaDriver \
+--client-secrets client_secrets.json \ 
+--spark-master spark://hadoop-m:7077 \
+--jar-path googlegenomics-spark-examples-assembly-1.0.jar
+```
+
+The analysis will output the two principal components for each sample to the console. Here is an example of the last few lines.
+```
+...
+NA20811		0.0286308791579312	-0.008456233951873527
+NA20812		0.030970386921818943	-0.006755469223823698
+NA20813		0.03080348019961635	-0.007475822860939408
+NA20814		0.02865238920148145	-0.008084003476919057
+NA20815		0.028798695736608034	-0.003755789964021788
+NA20816		0.026104805529612096	-0.010430718823329282
+NA20818		-0.033609576645005836	-0.026655905606186293
+NA20819		0.032019557126552155	-0.00775750983842731
+NA20826		0.03026607917284046	-0.009102704080927001
+NA20828		-0.03412964005321165	-0.025991697661590686
+NA21313		-0.03401702847363714	-0.024555217139987182
+```
+
+To save the PCA analysis output to a file, specify the `--output-path` flag.
+
+To specify a different variantset or run the analysis on multiple references use the `--variant-set-id` and  `--references` flags, the `--references` flag understand the following format, `<reference>:<start>:<end>,...`.
+
+To run a genome wide analysis on 1K genomes on a reasonable time, make sure you are running on at least 40 cores (`10 n1-standard-4 machines + 1 master`), the following command will run in approximatey 2 hours:
+
+```
+export SPARK_CLASSPATH=googlegenomics-spark-examples-assembly-1.0.jar; date; time spark-class -Dspark.task.maxFailures=9 \
+-Dspark.shuffle.spill=true \
+com.google.cloud.genomics.spark.examples.VariantsPcaDriver \
+--spark-master spark://hadoop-m:7077 \
+--jar-path googlegenomics-spark-examples-assembly-1.0.jar \
+--client-secrets ./client_secrets.json \
+--partitions-per-reference 500 \
+--num-reduce-partitions 500 \
+--references 1:1:249584621,2:1:243573643,3:1:198646620,4:1:191166555,5:1:181789530,6:1:171437644,7:1:159384882,8:1:147035750,9:1:141622696,10:1:136179071,11:1:135844125,12:1:134672335,13:1:115181169,14:1:107515075,15:1:103358507,16:1:90985975,17:1:81775057,18:1:78247741,19:1:59585744,20:1:63962825,21:1:48974388,22:1:51869428 \
+-o ggpd_1kg_500_500
+```
+
+You can track the progress of the job in the Spark UI console (see the following section to make sure you can connect to the UI using your browser) .
 
 ### Debugging 
 To debug the jobs from the Spark web UI, either setup a SOCKS5 proxy 
@@ -152,6 +187,19 @@ add the `http-8080-server` tag to the master and worker instances or follow the 
 [here](https://developers.google.com/compute/docs/instances#tags) to do it from the command line.
 
 Then point the browser to `http://<master-node-public-ip>:8080`
+
+
+Cluster Run
+-----------
+_SearchReadsExample3_ produces output files and therefore requires HDFS. Be sure to specify the `--output-path` flag to point to your HDFS master (e.g. _hdfs://namenode:9000/path_). Refer to the Spark [documentation](http://spark.apache.org/docs/0.9.1/spark-standalone.html#running-alongside-hadoop) for more information.
+
+
+Now generate the self-contained `googlegenomics-spark-examples-assembly-1.0.jar`
+```
+  cd spark-examples
+  sbt assembly
+```
+which can be found in the _spark-examples/target/scala-2.10_ directory. Ensure this JAR is copied to all workers at the same location. Run the examples as above.
 
 Licensing
 ---------
