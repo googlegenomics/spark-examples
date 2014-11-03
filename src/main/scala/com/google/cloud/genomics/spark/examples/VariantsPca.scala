@@ -16,7 +16,6 @@ limitations under the License.
 package com.google.cloud.genomics.spark.examples
 
 import scala.collection.JavaConversions._
-
 import org.apache.log4j.Level
 import org.apache.log4j.Logger
 import org.apache.spark.SparkContext
@@ -24,7 +23,6 @@ import org.apache.spark.SparkContext._
 import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.mllib.linalg.distributed.RowMatrix
 import org.apache.spark.rdd.RDD
-
 import com.google.api.services.genomics.Genomics
 import com.google.api.services.genomics.model.CallSet
 import com.google.api.services.genomics.model.SearchCallSetsRequest
@@ -36,8 +34,8 @@ import com.google.cloud.genomics.spark.examples.rdd.VariantsPartitioner
 import com.google.cloud.genomics.spark.examples.rdd.VariantsRDD
 import com.google.cloud.genomics.spark.examples.rdd.FixedBasesPerReference
 import com.google.cloud.genomics.utils.Paginator
-
 import breeze.linalg._
+import com.google.cloud.genomics.spark.examples.rdd.VariantsRddStats
 
 object VariantsPcaDriver {
 
@@ -49,6 +47,7 @@ object VariantsPcaDriver {
     val simMatrix = driver.getSimilarityMatrix(callsRdd)
     val result = driver.computePca(simMatrix)
     driver.emitResult(result)
+    driver.reportIoStats
     driver.stop
   }
 
@@ -57,9 +56,10 @@ object VariantsPcaDriver {
 
 class VariantsPcaDriver(conf: PcaConf) {
 
-  val applicationName = this.getClass.getName
-  val sc = conf.newSparkContext(this.getClass.getName)
-  val auth = Authentication.getAccessToken(conf.clientSecrets())
+  private val applicationName = this.getClass.getName
+  private val sc = conf.newSparkContext(this.getClass.getName)
+  private val auth = Authentication.getAccessToken(conf.clientSecrets())
+  private val ioStats = createIoStats
 
   val indexes: Map[String, Int] = {
     val client = Client(auth).genomics
@@ -78,7 +78,8 @@ class VariantsPcaDriver(conf: PcaConf) {
       new VariantsRDD(sc, this.getClass.getName, auth,
         conf.variantSetId(),
         new VariantsPartitioner(contigs,
-            FixedBasesPerReference(conf.basesPerPartition())))
+            FixedBasesPerReference(conf.basesPerPartition())),
+        stats=ioStats)
     }
   }
 
@@ -171,10 +172,6 @@ class VariantsPcaDriver(conf: PcaConf) {
     }
   }
 
-  def stop {
-    sc.stop
-  }
-
   /**
    * Computes a similarity matrix from the variant information.
    *
@@ -208,4 +205,19 @@ class VariantsPcaDriver(conf: PcaConf) {
     })
   }
 
+  def reportIoStats = {
+    this.ioStats match {
+      case Some(stats) => println(stats.toString)
+      case _ => {}
+    }
+  }
+
+  def stop {
+    sc.stop
+  }
+
+  def createIoStats = if (conf.inputPath.isDefined)
+      None
+    else
+      Option(new VariantsRddStats(sc))
 }
