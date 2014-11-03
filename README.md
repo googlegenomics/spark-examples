@@ -59,6 +59,17 @@ If you are seeing `java.lang.OutOfMemoryError: PermGen space` errors, set the fo
 export SBT_OPTS='-XX:MaxPermSize=256m'
 ``` 
 
+Cluster Run
+-----------
+`SearchReadsExample3` produces output files and therefore requires HDFS. Be sure to specify the `--output-path` flag to point to your HDFS master (e.g. _hdfs://namenode:9000/path_). Refer to the Spark [documentation](http://spark.apache.org/docs/0.9.1/spark-standalone.html#running-alongside-hadoop) for more information.
+
+To run the code on a cluster generate the self-contained `googlegenomics-spark-examples-assembly-1.0.jar`
+```
+  cd spark-examples
+  sbt assembly
+```
+which can be found in the _spark-examples/target/scala-2.10_ directory. Ensure this JAR is copied to all workers at the same location. Run the examples as above.
+
 Run on Google Compute Engine
 -----------------------------
 Follow the [instructions](https://groups.google.com/forum/#!topic/gcp-hadoop-announce/EfQms8tK5cE) to setup Google Cloud and install the Cloud SDK. At the end of the process you should be able to launch a test instance and login into it using `gcutil`.
@@ -114,7 +125,7 @@ To run the [variant PCA analysis](https://github.com/googlegenomics/spark-exampl
 Run the example PCA analysis for BCRA1 on the [1000 Genomes Project dataset](https://cloud.google.com/genomics/data/1000-genomes).
 ```
 export SPARK_CLASSPATH=googlegenomics-spark-examples-assembly-1.0.jar
-com.google.cloud.genomics.spark.examples.VariantsPcaDriver \
+spark-class com.google.cloud.genomics.spark.examples.VariantsPcaDriver \
 --client-secrets client_secrets.json \ 
 --spark-master spark://hadoop-m:7077 \
 --jar-path googlegenomics-spark-examples-assembly-1.0.jar
@@ -143,8 +154,8 @@ To specify a different variantset or run the analysis on multiple references use
 To run a genome wide analysis on 1K genomes on a reasonable time, make sure you are running on at least 40 cores (`10 n1-standard-4 machines + 1 master`), the following command will run in approximatey 2 hours:
 
 ```
-export SPARK_CLASSPATH=googlegenomics-spark-examples-assembly-1.0.jar; date; time spark-class -Dspark.task.maxFailures=9 \
--Dspark.shuffle.spill=true \
+export SPARK_CLASSPATH=googlegenomics-spark-examples-assembly-1.0.jar 
+spark-class -Dspark.shuffle.spill=true \
 com.google.cloud.genomics.spark.examples.VariantsPcaDriver \
 --spark-master spark://hadoop-m:7077 \
 --jar-path googlegenomics-spark-examples-assembly-1.0.jar \
@@ -152,10 +163,16 @@ com.google.cloud.genomics.spark.examples.VariantsPcaDriver \
 --partitions-per-reference 500 \
 --num-reduce-partitions 500 \
 --references 1:1:249584621,2:1:243573643,3:1:198646620,4:1:191166555,5:1:181789530,6:1:171437644,7:1:159384882,8:1:147035750,9:1:141622696,10:1:136179071,11:1:135844125,12:1:134672335,13:1:115181169,14:1:107515075,15:1:103358507,16:1:90985975,17:1:81775057,18:1:78247741,19:1:59585744,20:1:63962825,21:1:48974388,22:1:51869428 \
--o ggpd_1kg_500_500
+--output-path 1000genomes
 ```
 
 You can track the progress of the job in the Spark UI console (see the following section to make sure you can connect to the UI using your browser) .
+
+To retrieve the results form the output directory use `gsutil`:
+
+```
+gsutil cat gs://<bucket-name>/<output-path>-pca.tsv/part* > pca-results.tsv
+```
 
 ### Debugging 
 To debug the jobs from the Spark web UI, either setup a SOCKS5 proxy 
@@ -188,18 +205,6 @@ add the `http-8080-server` tag to the master and worker instances or follow the 
 
 Then point the browser to `http://<master-node-public-ip>:8080`
 
-
-Cluster Run
------------
-_SearchReadsExample3_ produces output files and therefore requires HDFS. Be sure to specify the `--output-path` flag to point to your HDFS master (e.g. _hdfs://namenode:9000/path_). Refer to the Spark [documentation](http://spark.apache.org/docs/0.9.1/spark-standalone.html#running-alongside-hadoop) for more information.
-
-
-Now generate the self-contained `googlegenomics-spark-examples-assembly-1.0.jar`
-```
-  cd spark-examples
-  sbt assembly
-```
-which can be found in the _spark-examples/target/scala-2.10_ directory. Ensure this JAR is copied to all workers at the same location. Run the examples as above.
 
 Licensing
 ---------
