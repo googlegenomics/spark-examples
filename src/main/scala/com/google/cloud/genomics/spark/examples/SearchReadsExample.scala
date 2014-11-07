@@ -15,6 +15,8 @@ limitations under the License.
 */
 package com.google.cloud.genomics.spark.examples
 
+import scala.collection.JavaConversions._
+
 import scala.collection.mutable.{Map => MutableMap}
 import org.apache.log4j.Level
 import org.apache.log4j.Logger
@@ -78,33 +80,32 @@ object SearchReadsExample1 {
     val sc = conf.newSparkContext(applicationName)
     Logger.getLogger("org").setLevel(Level.WARN)
     val region = Map(("11" -> (Examples.Cilantro - 1000, Examples.Cilantro + 1000)))
-    val accessToken = Authentication.getAccessToken(applicationName,
-        conf.clientSecrets())
+    val accessToken = Authentication.getAccessToken(conf.clientSecrets())
     val data = new ReadsRDD(sc, applicationName, accessToken,
       List(Examples.Google_Example_Readset),
-      new ReadsPartitioner(region, FixedSplits(1)),
-      conf.numRetries())
+      new ReadsPartitioner(region, FixedSplits(1)))
       .filter { rk =>
         val (_, read) = rk
-        read.position <= Examples.Cilantro && read.position + read.alignedBases.length >= Examples.Cilantro
+        // TODO: Take the cigar into account
+        read.position <= Examples.Cilantro && read.position + read.alignedSequence.length >= Examples.Cilantro
       }.cache()
     val first = data.collect.foldLeft(999999999L) { (a, b) =>
       val (_, read) = b
       val p = read.position
       if (p < a) { p.toLong } else { a }
     }
-    println(List.fill((Examples.Cilantro - first).toInt)(" ").foldLeft("")(_ + _) + "v")
+    println(List.fill((Examples.Cilantro - first).toInt)(" ").mkString("") + "v")
     val out = data.map { rk =>
       val (_, read) = rk
       val i = (Examples.Cilantro - read.position).toInt
-      val bases = read.alignedBases.splitAt(i + 1)
-      val q = "%02d".format(read.baseQuality(i) - 33)
-      List.fill((read.position - first).toInt)(" ").foldLeft("")(_ + _) + bases._1 + "(" + q + ") " + bases._2
+      val bases = read.alignedSequence.splitAt(i + 1)
+      val q = "%02d".format(read.alignedQuality(i))
+      List.fill((read.position - first).toInt)(" ").mkString("") + bases._1 + "(" + q + ") " + bases._2
     }
     // Collect the results so they are printed on the local console.
     out.collect.foreach(println(_))
 
-    println(List.fill((Examples.Cilantro - first).toInt)(" ").foldLeft("")(_ + _) + "^")
+    println(List.fill((Examples.Cilantro - first).toInt)(" ").mkString("") + "^")
     sc.stop
   }
 }
@@ -120,14 +121,13 @@ object SearchReadsExample2 {
     val chr = "21"
     val len = Examples.HumanChromosomes(chr)
     val region = Map((chr -> (1L, len)))
-    val accessToken = Authentication.getAccessToken(applicationName,
-        conf.clientSecrets())
+    val accessToken = Authentication.getAccessToken(conf.clientSecrets())
     val data = new ReadsRDD(sc, applicationName, accessToken,
       List(Examples.Google_Example_Readset),
       new ReadsPartitioner(region,
-          TargetSizeSplits(100, 5, 1024, 16 * 1024 * 1024)),
-      conf.numRetries())
-    val coverage = data.map(_._2.alignedBases.length.toLong)
+          TargetSizeSplits(100, 5, 1024, 16 * 1024 * 1024)))
+    // TODO: Take the cigar into account
+    val coverage = data.map(_._2.alignedSequence.length.toLong)
       .reduce(_ + _).toDouble / len.toDouble
     println("Coverage of chromosome " + chr + " = " + coverage)
     sc.stop
@@ -145,17 +145,16 @@ object SearchReadsExample3 {
     val sc = conf.newSparkContext(applicationName)
     val chr = "21"
     val region = Map((chr -> (1L, Examples.HumanChromosomes(chr))))
-    val accessToken = Authentication.getAccessToken(applicationName,
-        conf.clientSecrets())
+    val accessToken = Authentication.getAccessToken(conf.clientSecrets())
     val data = new ReadsRDD(sc, applicationName, accessToken,
       List(Examples.Google_Example_Readset),
       new ReadsPartitioner(region,
-          TargetSizeSplits(100, 5, 1024, 16 * 1024 * 1024)),
-      conf.numRetries())
+          TargetSizeSplits(100, 5, 1024, 16 * 1024 * 1024)))
     data.flatMap { rk =>
       val (_, read) = rk
-      val cover = MutableMap[Int, Int]()
-      for (i <- 0 until read.alignedBases.length) {
+      val cover = MutableMap[Long, Int]()
+      // TODO: Take the cigar into account
+      for (i <- 0 until read.alignedSequence.length) {
         cover(read.position + i) = 1
       }
       cover
@@ -177,8 +176,7 @@ object SearchReadsExample4 {
     val conf = new GenomicsConf(args)
     val outPath = conf.outputPath.orElse(Option("."))()
     val applicationName = this.getClass.getName
-    val accessToken = Authentication.getAccessToken(applicationName,
-        conf.clientSecrets())
+    val accessToken = Authentication.getAccessToken(conf.clientSecrets())
     val sc = conf.newSparkContext(applicationName)
     val chr = "1"
     val region = Map((chr -> (100000000L, 101000000L)))
@@ -220,14 +218,15 @@ object SearchReadsExample4 {
     //    (100091836,Map(G -> 0.08333333333333333, A -> 0.7222222222222222, T -> 0.19444444444444445))
     def freqRDD(readsets: List[String], partitioner: ReadsPartitioner) = {
       new ReadsRDD(sc, applicationName, accessToken,
-          readsets, partitioner, conf.numRetries())
+          readsets, partitioner)
         .filter(rk => rk._2.mappingQuality >= minMappingQual)
         .flatMap { rk =>
           val (_, read) = rk
-          var bases = List[(Int, Char)]()
-          for (i <- 0 until read.alignedBases.length) {
-            if (i < read.baseQuality.length && read.baseQuality(i) >= minBaseQual) {
-              bases ::= (read.position + i, read.alignedBases(i))
+          var bases = List[(Long, Char)]()
+          // TODO: Take the cigar into account
+          for (i <- 0 until read.alignedSequence.length) {
+            if (i < read.alignedQuality.length && read.alignedQuality(i) >= minBaseQual) {
+              bases ::= (read.position + i, read.alignedSequence(i))
             }
           }
           bases

@@ -34,6 +34,7 @@ import com.google.cloud.genomics.spark.examples.rdd.VariantsPartitioner
 import com.google.cloud.genomics.spark.examples.rdd.VariantsRDD
 import com.google.cloud.genomics.utils.Paginator
 import com.google.cloud.genomics.Authentication
+import com.google.cloud.genomics.Client
 
 object VariantsPcaDriver {
 
@@ -55,11 +56,10 @@ class VariantsPcaDriver(conf: PcaConf) {
 
   val applicationName = this.getClass.getName
   val sc = conf.newSparkContext(this.getClass.getName)
-  val auth = Authentication.getAccessToken(applicationName,
-    conf.clientSecrets())
+  val auth = Authentication.getAccessToken(conf.clientSecrets())
 
   val indexes: Map[String, Int] = {
-    val client = conf.newGenomicsClient(applicationName, auth)
+    val client = Client(auth).genomics
     val searchCallsets = Paginator.Callsets.create(client)
     val req = new SearchCallSetsRequest()
         .setVariantSetIds(List(conf.variantSetId()))
@@ -75,8 +75,7 @@ class VariantsPcaDriver(conf: PcaConf) {
       new VariantsRDD(sc, this.getClass.getName, auth,
         conf.variantSetId(),
         new VariantsPartitioner(contigs,
-            FixedContigSplits(conf.partitionsPerReference())),
-        conf.numRetries())
+            FixedContigSplits(conf.partitionsPerReference())))
     }
   }
 

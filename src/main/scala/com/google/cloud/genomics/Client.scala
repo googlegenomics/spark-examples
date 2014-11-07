@@ -35,7 +35,8 @@ class Auth(val clientSecrets: String,
     val refreshToken: String) extends Serializable
 
 object Authentication {
-  def getAccessToken(applicationName: String, clientSecretsFile: String) = {
+  def getAccessToken(clientSecretsFile: String,
+      applicationName: String = "spark-examples") = {
     val verificationCodeReceiver = Suppliers.ofInstance(new GooglePromptReceiver())
     val factory = GenomicsFactory.builder(applicationName)
       .setVerificationCodeReceiver(verificationCodeReceiver).build()
@@ -63,7 +64,7 @@ object Client {
         .setRefreshToken(auth.refreshToken);
   }
 
-  def apply(applicationName: String, auth: Auth): Client = {
+  def apply(auth: Auth, applicationName: String = "spark-examples"): Client = {
     // An IOException can occur when multiple workers on the same machine try to
     // create the directory to hold the stored credentials.
     val factory = Try(GenomicsFactory.builder(applicationName)

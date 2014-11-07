@@ -30,7 +30,6 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
       descr = "Set it to a " +
       "number greater than the number of cores, to achieve maximum " +
       "throughput.")
-  val numRetries = opt[Int](default = Some(3))
   val outputPath = opt[String]()
   val partitionsPerReference = opt[Int](default = Some(10),
       descr = "How many partitions per reference. Set it to a " +
@@ -56,10 +55,6 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
       .setJars(jarPath)
     conf.set("spark.shuffle.consolidateFiles", "true")
     new SparkContext(conf)
-  }
-
-  def newGenomicsClient(application: String, auth: Auth) = {
-    Client(application, auth).genomics
   }
 
   def getReferences = {
