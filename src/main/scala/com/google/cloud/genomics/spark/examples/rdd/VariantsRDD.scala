@@ -17,20 +17,20 @@ package com.google.cloud.genomics.spark.examples.rdd
 
 import java.lang.{Double => JDouble}
 import java.util.{List => JList}
-
 import scala.collection.JavaConversions._
-
 import org.apache.spark.Partition
 import org.apache.spark.SparkContext
+import org.apache.spark.SparkContext._
 import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
-
 import com.google.api.services.genomics.model.{Call => CallModel}
 import com.google.api.services.genomics.model.SearchVariantsRequest
 import com.google.api.services.genomics.model.{Variant => VariantModel}
 import com.google.cloud.genomics.Auth
 import com.google.cloud.genomics.Client
 import com.google.cloud.genomics.utils.Paginator
+
+import org.apache.spark.Accumulator
 
 /**
  * A serializable version of the Variant.
@@ -137,6 +137,24 @@ object VariantsBuilder {
   }
 }
 
+class VariantsRddStats(sc: SparkContext) extends Serializable {
+    val partitionsAccum = sc.accumulator(0, "Partitions count")
+    val referenceBasesAccum = sc.accumulator(0L, "Reference bases count")
+    val requestsAccum = sc.accumulator(0, "Request count")
+    val variantsAccum = sc.accumulator(0, "Variant count")
+
+    override def toString ={
+      val buf = new StringBuilder
+      buf ++= "Variants API stats:\n"
+      buf ++= "-------------------------------\n"
+      buf ++= s"# of partitions: ${this.partitionsAccum}\n"
+      // buf ++= s"# of API requests: ${this.requestsAccum}\n"
+      buf ++= s"# of bases requested: ${this.referenceBasesAccum}\n"
+      buf ++= s"# of variants read: ${this.variantsAccum}\n"
+      buf.toString
+    }
+}
+
 /**
  * A simple Spark RDD backed by Google Genomics VariantStore and
  * populated via the SearchVariants API call
@@ -146,8 +164,9 @@ class VariantsRDD(sc: SparkContext,
     applicationName: String,
     auth: Auth,
     variantSetId: String,
-    variantsPartitioner: VariantsPartitioner
-    ) extends RDD[(VariantKey, Variant)](sc, Nil) {
+    variantsPartitioner: VariantsPartitioner,
+    stats:Option[VariantsRddStats] = None)
+     extends RDD[(VariantKey, Variant)](sc, Nil) {
 
   override val partitioner = Some(variantsPartitioner)
 
@@ -165,7 +184,24 @@ class VariantsRDD(sc: SparkContext,
       .setReferenceName(partition.contig)
       .setStart(java.lang.Long.valueOf(partition.start))
       .setEnd(java.lang.Long.valueOf(partition.end))
-    reads.search(req).iterator().map(VariantsBuilder.build(_))
+    val iterator = reads.search(req).iterator().map(variant => {
+      stats match {
+        case Some(stat) => {
+        stat.variantsAccum += 1
+        }
+        case _ => {}
+      }
+      VariantsBuilder.build(variant)
+    })
+    stats match {
+      case Some(stat) => {
+        stat.partitionsAccum += 1
+        stat.referenceBasesAccum += (partition.end - partition.start)
+        // stat.requestsAccum += reads.getRequestCount
+      }
+      case _ => {}
+    }
+    iterator
   }
 }
 

@@ -17,7 +17,7 @@ package com.google.cloud.genomics.spark.examples
 
 import org.apache.log4j.Level
 import org.apache.log4j.Logger
-import com.google.cloud.genomics.spark.examples.rdd.FixedContigSplits
+import com.google.cloud.genomics.spark.examples.rdd.FixedSplitsPerReference
 import com.google.cloud.genomics.spark.examples.rdd.Variant
 import com.google.cloud.genomics.spark.examples.rdd.VariantKey
 import com.google.cloud.genomics.spark.examples.rdd.VariantsPartitioner
@@ -48,7 +48,7 @@ object SearchVariantsExampleKlotho {
       applicationName,
       accessToken,
       GoogleGenomicsPublicData.Platinum_Genomes,
-      new VariantsPartitioner(klotho, FixedContigSplits(1)))
+      new VariantsPartitioner(klotho, FixedSplitsPerReference(1)))
     data.cache()  // The amount of data is small since its just for one SNP.
     println("We have " + data.count() + " records that overlap Klotho.")
     println("But only " + data.filter { kv =>
@@ -96,7 +96,7 @@ object SearchVariantsExampleBRCA1 {
         this.getClass.getName,
         accessToken,
         GoogleGenomicsPublicData.Platinum_Genomes,
-        new VariantsPartitioner(brca1, FixedContigSplits(1)))
+        new VariantsPartitioner(brca1, FixedSplitsPerReference(1)))
     data.cache() // The amount of data is small since its just for one gene
     println("We have " + data.count() + " records that overlap BRCA1.")
     println("But only " + data.filter { kv =>

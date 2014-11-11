@@ -23,6 +23,8 @@ import com.google.cloud.genomics.Client
 import com.google.cloud.genomics.Auth
 
 class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
+  val basesPerPartition = opt[Int](default = Some(100000),
+      descr = "Partition each reference using a fixed number of bases")
   val clientSecrets = opt[String](default = Some("client_secrets.json"))
   val inputPath = opt[String]()
   val jarPath = opt[String]()
@@ -53,7 +55,8 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
       .setAppName(className)
       .setSparkHome(this.sparkPath())
       .setJars(jarPath)
-    conf.set("spark.shuffle.consolidateFiles", "true")
+      .set("spark.shuffle.consolidateFiles", "true")
+      .set("spark.core.connection.ack.wait.timeout","600")
     new SparkContext(conf)
   }
 
