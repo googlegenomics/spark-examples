@@ -32,6 +32,9 @@ import com.google.cloud.genomics.utils.Paginator
 
 import org.apache.spark.Accumulator
 
+import rx.lang.scala.Observable
+import rx.lang.scala.schedulers.IOScheduler
+
 /**
  * A serializable version of the Variant.
  * Currently Java Client model objects are not serializable, see
@@ -165,8 +168,8 @@ class VariantsRDD(sc: SparkContext,
     auth: Auth,
     variantSetId: String,
     variantsPartitioner: VariantsPartitioner,
-    stats:Option[VariantsRddStats] = None)
-     extends RDD[(VariantKey, Variant)](sc, Nil) {
+    stats:Option[VariantsRddStats] = None,
+    numThreads:Int = 1) extends RDD[(VariantKey, Variant)](sc, Nil) {
 
   override val partitioner = Some(variantsPartitioner)
 
@@ -174,25 +177,44 @@ class VariantsRDD(sc: SparkContext,
     variantsPartitioner.getPartitions(variantSetId)
   }
 
+  def toObservable(partition: VariantsPartition) =
+    Observable[(VariantKey, Variant)](subscriber => {
+      try {
+        val req = new SearchVariantsRequest()
+        .setVariantSetIds(List(partition.variantSetId))
+        .setReferenceName(partition.contig)
+        .setStart(java.lang.Long.valueOf(partition.start))
+        .setEnd(java.lang.Long.valueOf(partition.end))
+        val client = Client(auth).genomics
+        val reads = Paginator.Variants.create(client)
+        val it = reads.search(req).map({
+          stats match {
+            case Some(stat) => {
+            stat.variantsAccum += 1
+            }
+            case _ => {}
+          }
+          VariantsBuilder.build(_)})
+        if (it.isEmpty && !subscriber.isUnsubscribed) {
+            subscriber.onCompleted()
+        }
+        it.foreach(f => {
+            subscriber.onNext(f);
+          })
+          if (!subscriber.isUnsubscribed) {
+            subscriber.onCompleted()
+          }
+        } catch {
+          case t: Throwable =>
+          if (!subscriber.isUnsubscribed) {
+            subscriber.onError(t)
+          }
+        }
+      }).subscribeOn(IOScheduler())
+
   override def compute(part: Partition, ctx: TaskContext):
     Iterator[(VariantKey, Variant)] = {
-    val client = Client(auth).genomics
-    val reads = Paginator.Variants.create(client)
     val partition = part.asInstanceOf[VariantsPartition]
-    val req = new SearchVariantsRequest()
-      .setVariantSetIds(List(partition.variantSetId))
-      .setReferenceName(partition.contig)
-      .setStart(java.lang.Long.valueOf(partition.start))
-      .setEnd(java.lang.Long.valueOf(partition.end))
-    val iterator = reads.search(req).iterator().map(variant => {
-      stats match {
-        case Some(stat) => {
-        stat.variantsAccum += 1
-        }
-        case _ => {}
-      }
-      VariantsBuilder.build(variant)
-    })
     stats match {
       case Some(stat) => {
         stat.partitionsAccum += 1
@@ -201,12 +223,22 @@ class VariantsRDD(sc: SparkContext,
       }
       case _ => {}
     }
-    iterator
+    val span = (partition.end - partition.start) / numThreads
+    val obs = (0 until numThreads).map { i =>
+        val start = partition.start + (i * span)
+        VariantsPartition(partition.index, partition.variantSetId,
+            partition.contig, start, start + span)
+    }.filter(partition => partition.start != partition.end)
+    .map(toObservable)
+    if (obs.isEmpty)
+      Iterator[(VariantKey, Variant)]()
+    else
+      Observable.from(obs).flatten(numThreads * 2).toBlocking.toIterable.toIterator
   }
 }
 
 /**
- * Defines a search range over a contig.
+ * Defines a search range over a reference.
  */
 case class VariantsPartition(override val index: Int,
                           val variantSetId: String,
