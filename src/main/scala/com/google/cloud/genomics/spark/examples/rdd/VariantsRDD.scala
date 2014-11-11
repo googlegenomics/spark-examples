@@ -31,7 +31,6 @@ import com.google.api.services.genomics.model.{Variant => VariantModel}
 import com.google.cloud.genomics.Auth
 import com.google.cloud.genomics.Client
 import com.google.cloud.genomics.utils.Paginator
-import com.google.cloud.genomics.utils.RetryPolicy
 
 /**
  * A serializable version of the Variant.
@@ -147,8 +146,8 @@ class VariantsRDD(sc: SparkContext,
     applicationName: String,
     auth: Auth,
     variantSetId: String,
-    variantsPartitioner: VariantsPartitioner,
-    numRetries: Int) extends RDD[(VariantKey, Variant)](sc, Nil) {
+    variantsPartitioner: VariantsPartitioner
+    ) extends RDD[(VariantKey, Variant)](sc, Nil) {
 
   override val partitioner = Some(variantsPartitioner)
 
@@ -158,9 +157,8 @@ class VariantsRDD(sc: SparkContext,
 
   override def compute(part: Partition, ctx: TaskContext):
     Iterator[(VariantKey, Variant)] = {
-    val client = Client(applicationName, auth).genomics
-    val reads = Paginator.Variants.create(client,
-        RetryPolicy.nAttempts(numRetries))
+    val client = Client(auth).genomics
+    val reads = Paginator.Variants.create(client)
     val partition = part.asInstanceOf[VariantsPartition]
     val req = new SearchVariantsRequest()
       .setVariantSetIds(List(partition.variantSetId))

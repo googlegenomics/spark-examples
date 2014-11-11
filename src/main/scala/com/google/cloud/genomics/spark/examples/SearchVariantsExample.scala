@@ -43,14 +43,12 @@ object SearchVariantsExampleKlotho {
     val sc = conf.newSparkContext(applicationName)
     Logger.getLogger("org").setLevel(Level.WARN)
     val klotho = Map(("chr13" -> (33628137L, 33628138L)))
-    val accessToken = Authentication.getAccessToken(applicationName,
-      conf.clientSecrets())
+    val accessToken = Authentication.getAccessToken(conf.clientSecrets())
     val data = new VariantsRDD(sc,
       applicationName,
       accessToken,
       GoogleGenomicsPublicData.Platinum_Genomes,
-      new VariantsPartitioner(klotho, FixedContigSplits(1)),
-      conf.numRetries())
+      new VariantsPartitioner(klotho, FixedContigSplits(1)))
     data.cache()  // The amount of data is small since its just for one SNP.
     println("We have " + data.count() + " records that overlap Klotho.")
     println("But only " + data.filter { kv =>
@@ -93,14 +91,12 @@ object SearchVariantsExampleBRCA1 {
     val sc = conf.newSparkContext(applicationName)
     Logger.getLogger("org").setLevel(Level.WARN)
     val brca1 = Map(("chr17" -> (41196311L, 41277499L)))
-    val accessToken = Authentication.getAccessToken(applicationName,
-      conf.clientSecrets())
+    val accessToken = Authentication.getAccessToken(conf.clientSecrets())
     val data = new VariantsRDD(sc,
         this.getClass.getName,
         accessToken,
         GoogleGenomicsPublicData.Platinum_Genomes,
-        new VariantsPartitioner(brca1, FixedContigSplits(1)),
-        conf.numRetries())
+        new VariantsPartitioner(brca1, FixedContigSplits(1)))
     data.cache() // The amount of data is small since its just for one gene
     println("We have " + data.count() + " records that overlap BRCA1.")
     println("But only " + data.filter { kv =>
