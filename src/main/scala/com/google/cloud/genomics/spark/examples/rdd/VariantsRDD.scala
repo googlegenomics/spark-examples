@@ -148,7 +148,7 @@ class VariantsRddStats(sc: SparkContext) extends Serializable {
       buf ++= "Variants API stats:\n"
       buf ++= "-------------------------------\n"
       buf ++= s"# of partitions: ${this.partitionsAccum}\n"
-      // buf ++= s"# of API requests: ${this.requestsAccum}\n"
+      buf ++= s"# of API requests: ${this.requestsAccum}\n"
       buf ++= s"# of bases requested: ${this.referenceBasesAccum}\n"
       buf ++= s"# of variants read: ${this.variantsAccum}\n"
       buf.toString
@@ -176,8 +176,8 @@ class VariantsRDD(sc: SparkContext,
 
   override def compute(part: Partition, ctx: TaskContext):
     Iterator[(VariantKey, Variant)] = {
-    val client = Client(auth).genomics
-    val reads = Paginator.Variants.create(client)
+    val client = Client(auth)
+    val reads = Paginator.Variants.create(client.genomics)
     val partition = part.asInstanceOf[VariantsPartition]
     val req = new SearchVariantsRequest()
       .setVariantSetIds(List(partition.variantSetId))
@@ -185,23 +185,27 @@ class VariantsRDD(sc: SparkContext,
       .setStart(java.lang.Long.valueOf(partition.start))
       .setEnd(java.lang.Long.valueOf(partition.end))
     val iterator = reads.search(req).iterator().map(variant => {
-      stats match {
-        case Some(stat) => {
-        stat.variantsAccum += 1
-        }
-        case _ => {}
-      }
+      stats map { _.variantsAccum += 1 }
       VariantsBuilder.build(variant)
     })
-    stats match {
-      case Some(stat) => {
+    stats map { stat =>
         stat.partitionsAccum += 1
         stat.referenceBasesAccum += (partition.end - partition.start)
-        // stat.requestsAccum += reads.getRequestCount
-      }
-      case _ => {}
     }
-    iterator
+    // Wrap the iterator to read the number of initialized requests once
+    // it is fully traversed.
+    new Iterator[(VariantKey, Variant)]() {
+
+      def hasNext = {
+        val hasNext = iterator.hasNext
+        if (!hasNext) {
+          stats map { _.requestsAccum += client.initializedRequestsCount }
+        }
+        hasNext
+      }
+
+      def next = iterator.next
+    }
   }
 }
 

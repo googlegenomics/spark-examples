@@ -56,30 +56,37 @@ object Client {
     val clientSecrets = GoogleClientSecrets.load(jsonFactory,
         new StringReader(auth.clientSecrets))
     val transport = GoogleNetHttpTransport.newTrustedTransport()
-    new GoogleCredential.Builder().setTransport(transport)
+    val credential = new GoogleCredential.Builder().setTransport(transport)
         .setJsonFactory(jsonFactory)
         .setClientSecrets(clientSecrets)
         .build()
         .setAccessToken(auth.accessToken)
         .setRefreshToken(auth.refreshToken);
+    credential.refreshToken()
+    credential
+  }
+
+  def createGenomicsFactory(applicationName: String) = {
+   GenomicsFactory.builder(applicationName)
+      .setReadTimeout(60000).build()
   }
 
   def apply(auth: Auth, applicationName: String = "spark-examples"): Client = {
     // An IOException can occur when multiple workers on the same machine try to
     // create the directory to hold the stored credentials.
-    val factory = Try(GenomicsFactory.builder(applicationName)
-      .setReadTimeout(60000).build()) match {
+    val factory = Try(createGenomicsFactory(applicationName)) match {
          case Success(f) => f
          case Failure(ex) => {
            // Try one more time.
-           GenomicsFactory.builder(applicationName)
-             .setReadTimeout(60000).build()
+           createGenomicsFactory(applicationName)
           }
       }
     val service = factory.fromCredential(createCredentialWithRefreshToken(auth))
-    new Client(service)
+    new Client(service, factory)
   }
 }
 
-class Client(val genomics: Genomics)
+class Client(val genomics: Genomics, private val factory: GenomicsFactory) {
+  def initializedRequestsCount = factory.initializedRequestsCount()
+}
 

@@ -56,7 +56,6 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
       .setSparkHome(this.sparkPath())
       .setJars(jarPath)
       .set("spark.shuffle.consolidateFiles", "true")
-      .set("spark.core.connection.ack.wait.timeout","600")
     new SparkContext(conf)
   }
 
