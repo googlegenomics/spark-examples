@@ -122,7 +122,7 @@ The --jar-path will take care of copying the jar to all the workers before launc
 ### Running PCA variant analysis on GCE
 To run the [variant PCA analysis](https://github.com/googlegenomics/spark-examples/blob/master/src/main/scala/com/google/cloud/genomics/spark/examples/VariantsPca.scala) on GCE  make sure you have followed all the steps on the previous section and that you are able to run at least one of the examples.
 
-Run the example PCA analysis for BCRA1 on the [1000 Genomes Project dataset](https://cloud.google.com/genomics/data/1000-genomes).
+Run the example PCA analysis for BCAA1 on the [1000 Genomes Project dataset](https://cloud.google.com/genomics/data/1000-genomes).
 ```
 export SPARK_CLASSPATH=googlegenomics-spark-examples-assembly-1.0.jar
 spark-class com.google.cloud.genomics.spark.examples.VariantsPcaDriver \
