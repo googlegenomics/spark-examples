@@ -141,6 +141,8 @@ class VariantsRddStats(sc: SparkContext) extends Serializable {
     val partitionsAccum = sc.accumulator(0, "Partitions count")
     val referenceBasesAccum = sc.accumulator(0L, "Reference bases count")
     val requestsAccum = sc.accumulator(0, "Request count")
+    val unsuccessfulResponsesAccum = sc.accumulator(0, "Unsuccessful count")
+    val ioExceptionsAccum = sc.accumulator(0, "IO exceptions count")
     val variantsAccum = sc.accumulator(0, "Variant count")
 
     override def toString ={
@@ -148,9 +150,11 @@ class VariantsRddStats(sc: SparkContext) extends Serializable {
       buf ++= "Variants API stats:\n"
       buf ++= "-------------------------------\n"
       buf ++= s"# of partitions: ${this.partitionsAccum}\n"
-      buf ++= s"# of API requests: ${this.requestsAccum}\n"
       buf ++= s"# of bases requested: ${this.referenceBasesAccum}\n"
       buf ++= s"# of variants read: ${this.variantsAccum}\n"
+      buf ++= s"# of API requests: ${this.requestsAccum}\n"
+      buf ++= s"# of unsuccessful responses: ${this.unsuccessfulResponsesAccum}\n"
+      buf ++= s"# of IO exceptions: ${this.ioExceptionsAccum}\n"
       buf.toString
     }
 }
@@ -174,6 +178,12 @@ class VariantsRDD(sc: SparkContext,
     variantsPartitioner.getPartitions(variantSetId)
   }
 
+  def reportStats(client: Client) = stats map { stat =>
+    stat.requestsAccum += client.initializedRequestsCount
+    stat.unsuccessfulResponsesAccum += client.unsuccessfulResponsesCount
+    stat.ioExceptionsAccum += client.ioExceptionsCount
+  }
+
   override def compute(part: Partition, ctx: TaskContext):
     Iterator[(VariantKey, Variant)] = {
     val client = Client(auth)
@@ -195,11 +205,10 @@ class VariantsRDD(sc: SparkContext,
     // Wrap the iterator to read the number of initialized requests once
     // it is fully traversed.
     new Iterator[(VariantKey, Variant)]() {
-
       def hasNext = {
         val hasNext = iterator.hasNext
         if (!hasNext) {
-          stats map { _.requestsAccum += client.initializedRequestsCount }
+          reportStats(client)
         }
         hasNext
       }
