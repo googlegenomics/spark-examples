@@ -56,14 +56,12 @@ object Client {
     val clientSecrets = GoogleClientSecrets.load(jsonFactory,
         new StringReader(auth.clientSecrets))
     val transport = GoogleNetHttpTransport.newTrustedTransport()
-    val credential = new GoogleCredential.Builder().setTransport(transport)
+    new GoogleCredential.Builder().setTransport(transport)
         .setJsonFactory(jsonFactory)
         .setClientSecrets(clientSecrets)
         .build()
         .setAccessToken(auth.accessToken)
         .setRefreshToken(auth.refreshToken);
-    credential.refreshToken()
-    credential
   }
 
   def createGenomicsFactory(applicationName: String) = {
@@ -88,5 +86,7 @@ object Client {
 
 class Client(val genomics: Genomics, private val factory: GenomicsFactory) {
   def initializedRequestsCount = factory.initializedRequestsCount()
+  def unsuccessfulResponsesCount = factory.unsuccessfulResponsesCount()
+  def ioExceptionsCount = factory.ioExceptionsCount()
 }
 
