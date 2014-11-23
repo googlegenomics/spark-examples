@@ -23,10 +23,10 @@ import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
 import com.google.api.services.genomics.model.{Read => ReadModel}
 import com.google.api.services.genomics.model.SearchReadsRequest
-import com.google.cloud.genomics.Auth
 import com.google.cloud.genomics.Client
 import com.google.cloud.genomics.utils.Paginator
 import com.google.api.services.genomics.model.CigarUnit
+import com.google.cloud.genomics.utils.GenomicsFactory.OfflineAuth
 
 /**
  * A serializable version of the Read.
@@ -91,7 +91,7 @@ object ReadBuilder {
  */
 class ReadsRDD(sc: SparkContext,
                applicationName: String,
-               auth: Auth,
+               auth: OfflineAuth,
                readGroupSetIds: List[String],
                readsPartitioner: ReadsPartitioner)
                extends RDD[(ReadKey, Read)](sc, Nil) {

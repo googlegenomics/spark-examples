@@ -26,11 +26,10 @@ import org.apache.spark.rdd.RDD
 import com.google.api.services.genomics.model.{Call => CallModel}
 import com.google.api.services.genomics.model.SearchVariantsRequest
 import com.google.api.services.genomics.model.{Variant => VariantModel}
-import com.google.cloud.genomics.Auth
 import com.google.cloud.genomics.Client
 import com.google.cloud.genomics.utils.Paginator
-
 import org.apache.spark.Accumulator
+import com.google.cloud.genomics.utils.GenomicsFactory.OfflineAuth
 
 /**
  * A serializable version of the Variant.
@@ -166,7 +165,7 @@ class VariantsRddStats(sc: SparkContext) extends Serializable {
  */
 class VariantsRDD(sc: SparkContext,
     applicationName: String,
-    auth: Auth,
+    auth: OfflineAuth,
     variantSetId: String,
     variantsPartitioner: VariantsPartitioner,
     stats:Option[VariantsRddStats] = None)
