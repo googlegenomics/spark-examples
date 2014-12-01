@@ -1,4 +1,4 @@
-spark-examples
+spark-examples [![Build Status](https://img.shields.io/travis/googlegenomics/spark-examples.svg?style=flat)](https://travis-ci.org/googlegenomics/spark-examples)
 ==============
 
 The projects in this repository demonstrate working with genomic data accessible via the [Google Genomics API](https://developers.google.com/genomics/) using [Apache Spark](http://spark.apache.org/).
