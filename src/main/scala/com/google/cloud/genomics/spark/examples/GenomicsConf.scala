@@ -20,6 +20,8 @@ import org.apache.spark.SparkContext
 import org.rogach.scallop.ScallopConf
 import org.apache.spark.SparkConf
 import com.google.cloud.genomics.Client
+import com.google.cloud.genomics.utils.Contig
+
 class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
   val basesPerPartition = opt[Int](default = Some(100000),
       descr = "Partition each reference using a fixed number of bases")
@@ -58,10 +60,7 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
   }
 
   def getReferences = {
-    this.references().split(",").map(contig => {
-      val data = contig.split(":")
-      (data(0), (data(1).toLong, data(2).toLong))
-    }).toMap
+    Contig.parseContigsFromCommandLine(this.references())
   }
 }
 
