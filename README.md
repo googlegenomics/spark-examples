@@ -126,7 +126,7 @@ Run the example PCA analysis for BRCA1 on the [1000 Genomes Project dataset](htt
 ```
 export SPARK_CLASSPATH=googlegenomics-spark-examples-assembly-1.0.jar
 spark-class com.google.cloud.genomics.spark.examples.VariantsPcaDriver \
---client-secrets client_secrets.json \ 
+--client-secrets client_secrets.json \
 --spark-master spark://hadoop-m:7077 \
 --jar-path googlegenomics-spark-examples-assembly-1.0.jar
 ```
@@ -160,9 +160,9 @@ com.google.cloud.genomics.spark.examples.VariantsPcaDriver \
 --spark-master spark://hadoop-m:7077 \
 --jar-path googlegenomics-spark-examples-assembly-1.0.jar \
 --client-secrets ./client_secrets.json \
---partitions-per-reference 500 \
+--bases-per-partition 1000000 \
 --num-reduce-partitions 500 \
---references 1:1:249584621,2:1:243573643,3:1:198646620,4:1:191166555,5:1:181789530,6:1:171437644,7:1:159384882,8:1:147035750,9:1:141622696,10:1:136179071,11:1:135844125,12:1:134672335,13:1:115181169,14:1:107515075,15:1:103358507,16:1:90985975,17:1:81775057,18:1:78247741,19:1:59585744,20:1:63962825,21:1:48974388,22:1:51869428 \
+--all-references \
 --output-path 1000genomes
 ```
 

@@ -73,7 +73,9 @@ class VariantsPcaDriver(conf: PcaConf) {
     if (conf.inputPath.isDefined) {
       sc.objectFile[(VariantKey, Variant)](conf.inputPath())
     } else {
-      val contigs = conf.getReferences.toArray
+      val client = Client(auth).genomics
+      val contigs = conf.getReferences(client, conf.variantSetId()).toArray
+      println(s"Running PCA on ${contigs.length} references.")
       new VariantsRDD(sc, this.getClass.getName, auth,
         conf.variantSetId(),
         new VariantsPartitioner(contigs, conf.basesPerPartition()),
