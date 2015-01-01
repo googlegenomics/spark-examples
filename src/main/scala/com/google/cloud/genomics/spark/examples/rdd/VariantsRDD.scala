@@ -242,13 +242,9 @@ class VariantsPartitioner(variants: Seq[Contig],
 
   // Generates all partitions for all mapped variants in the contig space.
   def getPartitions(variantSetId: String): Array[Partition] = {
-    var index = 0
-    variants.map { contig =>
-      contig.getShards(numberOfBasesPerShard).map { shard =>
-        val partition = VariantsPartition(index, variantSetId, shard)
-        index += 1
-        partition
-      }
-    }.flatten.toArray
+    variants.map { _.getShards(numberOfBasesPerShard) }
+      .flatten.view.zipWithIndex.map { shard =>
+        VariantsPartition(shard._2, variantSetId, shard._1)
+      }.toArray
   }
 }
