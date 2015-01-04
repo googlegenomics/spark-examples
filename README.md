@@ -104,14 +104,10 @@ To run the examples on GCE, login to the master node and launch the examples usi
 # Login into the master node
 gcutil ssh hadoop-m
 
-# Add the jar to the classpath
-export SPARK_CLASSPATH=googlegenomics-spark-examples-assembly-1.0.jar
-
 # Run the examples
-spark-class com.google.cloud.genomics.spark.examples.SearchReadsExample1 \
---client-secrets client_secrets.json \ 
---spark-master spark://hadoop-m:7077 \
---jar-path googlegenomics-spark-examples-assembly-1.0.jar
+spark-submit --class com.google.cloud.genomics.spark.examples.SearchReadsExample1 \
+--master spark://hadoop-m:7077 googlegenomics-spark-examples-assembly-1.0.jar \
+--client-secrets client_secrets.json
 ```
 
 When prompted copy the authentication URL to a browser, authorize the application and copy 
@@ -124,11 +120,9 @@ To run the [variant PCA analysis](https://github.com/googlegenomics/spark-exampl
 
 Run the example PCA analysis for BRCA1 on the [1000 Genomes Project dataset](https://cloud.google.com/genomics/data/1000-genomes).
 ```
-export SPARK_CLASSPATH=googlegenomics-spark-examples-assembly-1.0.jar
-spark-class com.google.cloud.genomics.spark.examples.VariantsPcaDriver \
---client-secrets client_secrets.json \
---spark-master spark://hadoop-m:7077 \
---jar-path googlegenomics-spark-examples-assembly-1.0.jar
+spark-submit --class com.google.cloud.genomics.spark.examples.VariantsPcaDriver \
+--master spark://hadoop-m:7077 googlegenomics-spark-examples-assembly-1.0.jar \
+--client-secrets client_secrets.json
 ```
 
 The analysis will output the two principal components for each sample to the console. Here is an example of the last few lines.
@@ -154,12 +148,10 @@ To specify a different variantset or run the analysis on multiple references use
 To run a genome wide analysis on 1K genomes on a reasonable time, make sure you are running on at least 40 cores (`10 n1-standard-4 machines + 1 master`), the following command will run in approximatey 2 hours:
 
 ```
-export SPARK_CLASSPATH=googlegenomics-spark-examples-assembly-1.0.jar 
-spark-class -Dspark.shuffle.spill=true \
-com.google.cloud.genomics.spark.examples.VariantsPcaDriver \
---spark-master spark://hadoop-m:7077 \
---jar-path googlegenomics-spark-examples-assembly-1.0.jar \
---client-secrets ./client_secrets.json \
+spark-submit --class com.google.cloud.genomics.spark.examples.VariantsPcaDriver \
+--master spark://hadoop-m:7077 --conf spark.shuffle.spill=true \
+googlegenomics-spark-examples-assembly-1.0.jar \
+--client-secrets client_secrets.json \
 --bases-per-partition 1000000 \
 --num-reduce-partitions 500 \
 --all-references \
