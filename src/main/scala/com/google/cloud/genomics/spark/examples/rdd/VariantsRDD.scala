@@ -30,6 +30,7 @@ import com.google.cloud.genomics.Client
 import com.google.cloud.genomics.utils.Paginator
 import org.apache.spark.Accumulator
 import com.google.cloud.genomics.utils.GenomicsFactory.OfflineAuth
+import com.google.cloud.genomics.utils.Contig
 
 /**
  * A serializable version of the Variant.
@@ -171,7 +172,6 @@ class VariantsRDD(sc: SparkContext,
     stats:Option[VariantsRddStats] = None)
      extends RDD[(VariantKey, Variant)](sc, Nil) {
 
-  override val partitioner = Some(variantsPartitioner)
 
   override def getPartitions: Array[Partition] = {
     variantsPartitioner.getPartitions(variantSetId)
@@ -188,18 +188,14 @@ class VariantsRDD(sc: SparkContext,
     val client = Client(auth)
     val reads = Paginator.Variants.create(client.genomics)
     val partition = part.asInstanceOf[VariantsPartition]
-    val req = new SearchVariantsRequest()
-      .setVariantSetIds(List(partition.variantSetId))
-      .setReferenceName(partition.contig)
-      .setStart(java.lang.Long.valueOf(partition.start))
-      .setEnd(java.lang.Long.valueOf(partition.end))
+    val req = partition.getVariantsRequest
     val iterator = reads.search(req).iterator().map(variant => {
       stats map { _.variantsAccum += 1 }
       VariantsBuilder.build(variant)
     })
     stats map { stat =>
         stat.partitionsAccum += 1
-        stat.referenceBasesAccum += (partition.end - partition.start)
+        stat.referenceBasesAccum += (partition.range)
     }
     // Wrap the iterator to read the number of initialized requests once
     // it is fully traversed.
@@ -217,16 +213,38 @@ class VariantsRDD(sc: SparkContext,
   }
 }
 
+
 /**
  * Defines a search range over a contig.
  */
 case class VariantsPartition(override val index: Int,
                           val variantSetId: String,
-                          val contig: String,
-                          val start: Long,
-                          val end: Long) extends Partition
+                          val contig: Contig) extends Partition {
+  def getVariantsRequest = {
+    contig.getVariantsRequest(variantSetId)
+  }
+
+  def range = contig.end - contig.start
+}
+
 
 /**
  * Indexes a variant to its partition.
  */
 case class VariantKey(contig: String, position: Long)
+
+
+/**
+ * Describes partitions for a set of contigs and their ranges.
+ */
+class VariantsPartitioner(variants: Seq[Contig],
+    numberOfBasesPerShard: Long) extends Serializable {
+
+  // Generates all partitions for all mapped variants in the contig space.
+  def getPartitions(variantSetId: String): Array[Partition] = {
+    variants.map { _.getShards(numberOfBasesPerShard) }
+      .flatten.view.zipWithIndex.map { shard =>
+        VariantsPartition(shard._2, variantSetId, shard._1)
+      }.toArray
+  }
+}

@@ -17,12 +17,12 @@ package com.google.cloud.genomics.spark.examples
 
 import org.apache.log4j.Level
 import org.apache.log4j.Logger
-import com.google.cloud.genomics.spark.examples.rdd.FixedSplitsPerReference
 import com.google.cloud.genomics.spark.examples.rdd.Variant
 import com.google.cloud.genomics.spark.examples.rdd.VariantKey
 import com.google.cloud.genomics.spark.examples.rdd.VariantsPartitioner
 import com.google.cloud.genomics.spark.examples.rdd.VariantsRDD
 import com.google.cloud.genomics.Authentication
+import com.google.cloud.genomics.utils.Contig
 
 object GoogleGenomicsPublicData {
   final val Platinum_Genomes =   "3049512673186936334"
@@ -42,13 +42,13 @@ object SearchVariantsExampleKlotho {
     val applicationName = this.getClass.getName
     val sc = conf.newSparkContext(applicationName)
     Logger.getLogger("org").setLevel(Level.WARN)
-    val klotho = Map(("chr13" -> (33628137L, 33628138L)))
+    val klotho = Seq(new Contig("chr13", 33628137L, 33628138L))
     val accessToken = Authentication.getAccessToken(conf.clientSecrets())
     val data = new VariantsRDD(sc,
       applicationName,
       accessToken,
       GoogleGenomicsPublicData.Platinum_Genomes,
-      new VariantsPartitioner(klotho, FixedSplitsPerReference(1)))
+      new VariantsPartitioner(klotho, conf.basesPerPartition()))
     data.cache()  // The amount of data is small since its just for one SNP.
     println("We have " + data.count() + " records that overlap Klotho.")
     println("But only " + data.filter { kv =>
@@ -64,8 +64,8 @@ object SearchVariantsExampleKlotho {
                                  variant.referenceBases != "N"
     }
     variants.collect.foreach { kv =>
-                               val (key, variant) = kv
-                               println(variant.contig + " " + variant.position)
+      val (key, variant) = kv
+      println(s"Reference: ${variant.contig} @ ${variant.position}")
     }
 
     // Exercise conversion from scala objects back to java objects.  This
@@ -90,13 +90,13 @@ object SearchVariantsExampleBRCA1 {
     val applicationName = this.getClass.getName
     val sc = conf.newSparkContext(applicationName)
     Logger.getLogger("org").setLevel(Level.WARN)
-    val brca1 = Map(("chr17" -> (41196311L, 41277499L)))
+    val brca1 = Seq(new Contig("chr17", 41196311L, 41277499L))
     val accessToken = Authentication.getAccessToken(conf.clientSecrets())
     val data = new VariantsRDD(sc,
         this.getClass.getName,
         accessToken,
         GoogleGenomicsPublicData.Platinum_Genomes,
-        new VariantsPartitioner(brca1, FixedSplitsPerReference(1)))
+        new VariantsPartitioner(brca1, conf.basesPerPartition()))
     data.cache() // The amount of data is small since its just for one gene
     println("We have " + data.count() + " records that overlap BRCA1.")
     println("But only " + data.filter { kv =>

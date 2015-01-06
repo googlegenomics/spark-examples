@@ -32,7 +32,6 @@ import com.google.cloud.genomics.spark.examples.rdd.Variant
 import com.google.cloud.genomics.spark.examples.rdd.VariantKey
 import com.google.cloud.genomics.spark.examples.rdd.VariantsPartitioner
 import com.google.cloud.genomics.spark.examples.rdd.VariantsRDD
-import com.google.cloud.genomics.spark.examples.rdd.FixedBasesPerReference
 import com.google.cloud.genomics.utils.Paginator
 import breeze.linalg._
 import com.google.cloud.genomics.spark.examples.rdd.VariantsRddStats
@@ -74,11 +73,12 @@ class VariantsPcaDriver(conf: PcaConf) {
     if (conf.inputPath.isDefined) {
       sc.objectFile[(VariantKey, Variant)](conf.inputPath())
     } else {
-      val contigs = conf.getReferences
+      val client = Client(auth).genomics
+      val contigs = conf.getReferences(client, conf.variantSetId()).toArray
+      println(s"Running PCA on ${contigs.length} references.")
       new VariantsRDD(sc, this.getClass.getName, auth,
         conf.variantSetId(),
-        new VariantsPartitioner(contigs,
-            FixedBasesPerReference(conf.basesPerPartition())),
+        new VariantsPartitioner(contigs, conf.basesPerPartition()),
         stats=ioStats)
     }
   }

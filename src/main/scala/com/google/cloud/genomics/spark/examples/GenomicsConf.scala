@@ -20,8 +20,12 @@ import org.apache.spark.SparkContext
 import org.rogach.scallop.ScallopConf
 import org.apache.spark.SparkConf
 import com.google.cloud.genomics.Client
+import com.google.cloud.genomics.utils.Contig
+import com.google.api.services.genomics.Genomics
+
 class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
-  val basesPerPartition = opt[Int](default = Some(100000),
+  val basesPerPartition = opt[Long](default =
+    Some(Contig.DEFAULT_NUMBER_OF_BASES_PER_SHARD),
       descr = "Partition each reference using a fixed number of bases")
   val clientSecrets = opt[String](default = Some("client_secrets.json"))
   val inputPath = opt[String]()
@@ -31,11 +35,7 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
       "number greater than the number of cores, to achieve maximum " +
       "throughput.")
   val outputPath = opt[String]()
-  val partitionsPerReference = opt[Int](default = Some(10),
-      descr = "How many partitions per reference. Set it to a " +
-      "number greater than the number of cores, to achieve maximum " +
-      "throughput.")
-  val references = opt[String](default=Some("17:41196311:41277499"),
+  val references = opt[String](default=Some(Contig.BRCA1),
       descr = "Comma separated tuples of reference:start:end,...")
   val sparkMaster = opt[String](default = Some("local[2]"))
   val sparkPath = opt[String](default = Some(""))
@@ -58,13 +58,28 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
   }
 
   def getReferences = {
-    this.references().split(",").map(contig => {
-      val data = contig.split(":")
-      (data(0), (data(1).toLong, data(2).toLong))
-    }).toMap
+    Contig.parseContigsFromCommandLine(this.references())
   }
+}
+
+object PcaConf {
+  val ExcludeXY = true
 }
 
 class PcaConf(arguments: Seq[String]) extends GenomicsConf(arguments) {
   val numPc = opt[Int](default = Some(2))
+  val allReferences = opt[Boolean](
+      descr =  "Use all references (except X and Y) to compute PCA " +
+      "(overrides --references).")
+
+  /**
+   * Returns either the parsed references from --references or all references
+   * except X and Y if --all-references is specified.
+   */
+  def getReferences(client: Genomics, variantSetId: String) = {
+    if (this.allReferences())
+      Contig.getContigsInVariantSet(client, variantSetId, PcaConf.ExcludeXY)
+    else
+      Contig.parseContigsFromCommandLine(this.references())
+  }
 }
