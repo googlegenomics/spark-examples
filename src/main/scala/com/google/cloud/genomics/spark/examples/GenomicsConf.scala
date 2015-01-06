@@ -62,13 +62,23 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
   }
 }
 
+object PcaConf {
+  val ExcludeXY = true
+}
+
 class PcaConf(arguments: Seq[String]) extends GenomicsConf(arguments) {
   val numPc = opt[Int](default = Some(2))
-  val allReferences = opt[Boolean]()
+  val allReferences = opt[Boolean](
+      descr =  "Use all references (except X and Y) to compute PCA " +
+      "(overrides --references).")
 
+  /**
+   * Returns either the parsed references from --references or all references
+   * except X and Y if --all-references is specified.
+   */
   def getReferences(client: Genomics, variantSetId: String) = {
     if (this.allReferences())
-      Contig.getContigsInVariantSet(client, variantSetId, true)
+      Contig.getContigsInVariantSet(client, variantSetId, PcaConf.ExcludeXY)
     else
       Contig.parseContigsFromCommandLine(this.references())
   }
