@@ -35,6 +35,9 @@ import com.google.cloud.genomics.spark.examples.rdd.VariantsRDD
 import com.google.cloud.genomics.utils.Paginator
 import breeze.linalg._
 import com.google.cloud.genomics.spark.examples.rdd.VariantsRddStats
+import org.apache.spark.rdd.UnionRDD
+import com.google.common.hash.Hashing
+import com.google.common.base.Charsets
 
 object VariantsPcaDriver {
 
@@ -60,13 +63,17 @@ class VariantsPcaDriver(conf: PcaConf) {
   private val auth = Authentication.getAccessToken(conf.clientSecrets())
   private val ioStats = createIoStats
 
-  val indexes: Map[String, Int] = {
+  val (indexes, names) = {
     val client = Client(auth).genomics
     val searchCallsets = Paginator.Callsets.create(client)
     val req = new SearchCallSetsRequest()
-        .setVariantSetIds(List(conf.variantSetId()))
-    searchCallsets.search(req).iterator()
-      .map(callSet => callSet.getSampleId).toSeq.zipWithIndex.toMap
+        .setVariantSetIds(conf.variantSetId())
+    val callsets = searchCallsets.search(req).iterator().toSeq
+    val indexes = callsets.map(
+        callset => callset.getId()).toSeq.zipWithIndex.toMap
+    val names = callsets.map(
+        callset => (callset.getId(), callset.getName())).toMap
+    (indexes, names)
   }
 
   private def getData: RDD[(VariantKey, Variant)] = {
@@ -75,29 +82,60 @@ class VariantsPcaDriver(conf: PcaConf) {
     } else {
       val client = Client(auth).genomics
       val contigs = conf.getReferences(client, conf.variantSetId()).toArray
-      println(s"Running PCA on ${contigs.length} references.")
-      new VariantsRDD(sc, this.getClass.getName, auth,
-        conf.variantSetId(),
-        new VariantsPartitioner(contigs, conf.basesPerPartition()),
-        stats=ioStats)
+      val rdds = conf.variantSetId().map { variantSetId =>
+        new VariantsRDD(sc, this.getClass.getName, auth,
+          variantSetId,
+          new VariantsPartitioner(contigs, conf.basesPerPartition()),
+          stats=ioStats)
+      }
+      new UnionRDD(sc, rdds)
     }
   }
 
   /**
-   * Returns an RDD of variant callsets with each call mapped to an position.
+   * Returns an RDD of variant callsets with each call mapped to a position.
    */
   def getCallsRdd: RDD[Seq[Int]] = {
-    val samplesWithVariant = getData.map(kv => kv._2)
-      .map(_.calls.getOrElse(Seq()))
+    val mergedRdd = mergeDatasets(getData.map(kv => kv._2))
+    val samplesWithVariant = mergedRdd
       .map(calls => calls.filter(_.genotype.foldLeft(false)(_ || _ > 0)))
       // Keep only those variants that have at least one call.
       .filter(_.size > 0)
-    val broadcastNames = sc.broadcast(indexes)
-    val callsets = samplesWithVariant.map(_.map(_.callsetName))
+    val broadcastIndexes = sc.broadcast(indexes)
+    val callsets = samplesWithVariant.map(_.map(_.callsetId))
     callsets.map(callset => {
-      val mapping = broadcastNames.value
+      val mapping = broadcastIndexes.value
       callset.map(mapping(_).toInt)
     })
+  }
+
+  /**
+   * Returns an RDD of calls merged by their variant matching key.
+   *
+   * The key is composed by the reference name its start and end positions,
+   * as well as the reference and alternate bases.
+   */
+  def mergeDatasets(callsets: RDD[Variant]) = {
+    val merged = callsets.map(variant => {
+      val reference = variant.contig
+      val start = variant.start
+      val end = variant.end
+      val referenceBases = variant.referenceBases
+      val alternateBases = variant.alternateBases
+      val hash = Hashing.murmur3_128().newHasher()
+       .putString(reference, Charsets.UTF_8)
+       .putLong(start)
+       .putLong(end)
+       .putString(referenceBases, Charsets.UTF_8)
+       .putString(
+           alternateBases.map(altBases => altBases.mkString("")).getOrElse(""),
+           Charsets.UTF_8)
+      .hash().toString()
+      (hash, variant)
+    }).groupByKey().values
+    val variantSetSize = conf.variantSetId().size
+    merged.filter(_.size() == variantSetSize).map(
+        related => related.flatMap(_.calls.getOrElse(Seq())).toSeq)
   }
 
   /**
@@ -162,11 +200,13 @@ class VariantsPcaDriver(conf: PcaConf) {
   }
 
   def emitResult(result: Seq[(String, Double, Double)]) {
-    result.sortBy(_._1).foreach(tuple =>
+    val resultWithNames = result.map(
+        tuple => (names(tuple._1), tuple._2, tuple._3))
+    resultWithNames.sortBy(_._1).foreach(tuple =>
       println(s"${tuple._1}\t\t${tuple._2}\t${tuple._3}"))
 
     if(conf.outputPath.isDefined) {
-      val resultRdd = sc.parallelize(result)
+      val resultRdd = sc.parallelize(resultWithNames)
       resultRdd.map(tuple => s"${tuple._1}\t${tuple._2}\t${tuple._3}")
         .saveAsTextFile(conf.outputPath() + "-pca.tsv")
     }
