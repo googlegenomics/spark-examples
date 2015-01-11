@@ -46,7 +46,7 @@ case class Call(callsetId: String, callsetName: String, genotype: List[Integer],
 
 
 case class Variant(contig: String, id: String, names: Option[List[String]],
-    position: Long, end: Option[Long], referenceBases: String,
+    start: Long, end: Long, referenceBases: String,
     alternateBases: Option[List[String]], info: Map[String, JList[String]],
     created: Long, variantSetId: String, calls: Option[Seq[Call]]) extends Serializable {
 
@@ -57,11 +57,11 @@ case class Variant(contig: String, id: String, names: Option[List[String]],
     .setVariantSetId(this.variantSetId)
     .setId(this.id)
     .setInfo(this.info)
-    .setStart(this.position)
+    .setStart(this.start)
+    .setEnd(this.end)
     .setReferenceBases(this.referenceBases)
 
     if (this.alternateBases isDefined) variant.setAlternateBases(this.alternateBases.get)
-    if (this.end isDefined) variant.setEnd(this.end.get.toLong)
     if (this.names isDefined) variant.setNames(this.names.get)
     if (this.calls isDefined) {
       val calls = this.calls.get.map
@@ -115,10 +115,7 @@ object VariantsBuilder {
         else
           None,
         r.getStart,
-        if (r.containsKey("end"))
-          Some(r.getEnd)
-        else
-          None,
+        r.getEnd,
         r.getReferenceBases,
         if (r.containsKey("alternateBases"))
           Some(r.getAlternateBases.toList)

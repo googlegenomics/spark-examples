@@ -16,6 +16,8 @@ limitations under the License.
 
 package com.google.cloud.genomics.spark.examples
 
+import scala.collection.JavaConversions._
+
 import org.apache.spark.SparkContext
 import org.rogach.scallop.ScallopConf
 import org.apache.spark.SparkConf
@@ -35,13 +37,14 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
       "number greater than the number of cores, to achieve maximum " +
       "throughput.")
   val outputPath = opt[String]()
-  val references = opt[String](default=Some(Contig.BRCA1),
-      descr = "Comma separated tuples of reference:start:end,...")
+  val references = opt[List[String]](default=Some(List(Contig.BRCA1)),
+      descr = "Comma separated tuples of reference:start:end,... " +
+      "one per variantset, in the corresponding order.")
   val sparkMaster = opt[String](
       descr = "A spark master URL. Leave empty if using spark-submit.")
-  val variantSetId = opt[String](
-    default = Some(GoogleGenomicsPublicData.Thousand_Genomes_Phase_1),
-      descr = "VariantSetId to use in the analysis.")
+  val variantSetId = opt[List[String]](
+    default = Some(List(GoogleGenomicsPublicData.Thousand_Genomes_Phase_1)),
+      descr = "List of VariantSetId to use in the analysis.")
 
   def newSparkContext(className: String) = {
     val conf = new SparkConf()
@@ -53,7 +56,9 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
   }
 
   def getReferences = {
-    Contig.parseContigsFromCommandLine(this.references())
+    this.references() map {
+      Contig.parseContigsFromCommandLine(_)
+    }
   }
 }
 
@@ -71,10 +76,17 @@ class PcaConf(arguments: Seq[String]) extends GenomicsConf(arguments) {
    * Returns either the parsed references from --references or all references
    * except X and Y if --all-references is specified.
    */
-  def getReferences(client: Genomics, variantSetId: String) = {
-    if (this.allReferences())
-      Contig.getContigsInVariantSet(client, variantSetId, PcaConf.ExcludeXY)
-    else
-      Contig.parseContigsFromCommandLine(this.references())
+  def getReferences(client: Genomics, variantSetIds: List[String]) = {
+    println(s"Running PCA on ${variantSetIds.length} references.")
+    variantSetIds.zip(this.references()).map {
+      case (variantSetId, references)  =>
+      if (this.allReferences()) {
+        println(s"Variantset: ${variantSetId}; All refs, exclude XY")
+        Contig.getContigsInVariantSet(client, variantSetId, PcaConf.ExcludeXY)
+      } else {
+        println(s"Variantset: ${variantSetId}; Refs: ${references}")
+        Contig.parseContigsFromCommandLine(references)
+      }
+    }.flatten
   }
 }
