@@ -23,6 +23,7 @@ import org.apache.spark.SparkContext._
 import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.mllib.linalg.distributed.RowMatrix
 import org.apache.spark.rdd.RDD
+import org.apache.spark.broadcast.Broadcast
 import com.google.api.services.genomics.Genomics
 import com.google.api.services.genomics.model.CallSet
 import com.google.api.services.genomics.model.SearchCallSetsRequest
@@ -54,6 +55,27 @@ object VariantsPcaDriver {
   }
 
   def apply(conf: PcaConf) = new VariantsPcaDriver(conf)
+
+  // The following functions are defined on the companion object so they can be
+  // serialized and used on the RDD functions.
+  def extractCallInfo(variant: Variant, mapping: Map[String, Int]) = {
+    variant.calls.getOrElse(Seq()).map(
+        call => CallData(call.genotype.foldLeft(false)(_ || _ > 0),
+            mapping(call.callsetId)))
+ }
+
+  def getVariantKey(variant: Variant) = {
+    Hashing.murmur3_128().newHasher()
+       .putString(variant.contig, Charsets.UTF_8)
+       .putLong(variant.start)
+       .putLong(variant.end)
+       .putString(variant.referenceBases, Charsets.UTF_8)
+       .putString(
+           variant.alternateBases.map(
+               altBases => altBases.mkString("")).getOrElse(""),
+           Charsets.UTF_8)
+      .hash().toString()
+  }
 }
 
 class VariantsPcaDriver(conf: PcaConf) {
@@ -96,17 +118,19 @@ class VariantsPcaDriver(conf: PcaConf) {
    * Returns an RDD of variant callsets with each call mapped to a position.
    */
   def getCallsRdd: RDD[Seq[Int]] = {
-    val mergedRdd = mergeDatasets(getData.map(kv => kv._2))
-    val samplesWithVariant = mergedRdd
-      .map(calls => calls.filter(_.genotype.foldLeft(false)(_ || _ > 0)))
-      // Keep only those variants that have at least one call.
-      .filter(_.size > 0)
+    val variantSetSize = conf.variantSetId().size
+    val values = getData.map(kv => kv._2)
     val broadcastIndexes = sc.broadcast(indexes)
-    val callsets = samplesWithVariant.map(_.map(_.callsetId))
-    callsets.map(callset => {
-      val mapping = broadcastIndexes.value
-      callset.map(mapping(_).toInt)
-    })
+    val callsets = if (variantSetSize == 1)
+      values.map(
+          VariantsPcaDriver.extractCallInfo(_, broadcastIndexes.value))
+    else
+      mergeDatasets(values, variantSetSize, broadcastIndexes)
+    return callsets
+      .map(calls => calls.filter(_.hasVariation))
+       // Return only those sets that have at least one call with variation.
+      .filter(_.size > 0)
+      .map(_.map(_.callsetId))
   }
 
   /**
@@ -115,27 +139,17 @@ class VariantsPcaDriver(conf: PcaConf) {
    * The key is composed by the reference name its start and end positions,
    * as well as the reference and alternate bases.
    */
-  def mergeDatasets(callsets: RDD[Variant]) = {
-    val merged = callsets.map(variant => {
-      val reference = variant.contig
-      val start = variant.start
-      val end = variant.end
-      val referenceBases = variant.referenceBases
-      val alternateBases = variant.alternateBases
-      val hash = Hashing.murmur3_128().newHasher()
-       .putString(reference, Charsets.UTF_8)
-       .putLong(start)
-       .putLong(end)
-       .putString(referenceBases, Charsets.UTF_8)
-       .putString(
-           alternateBases.map(altBases => altBases.mkString("")).getOrElse(""),
-           Charsets.UTF_8)
-      .hash().toString()
-      (hash, variant)
-    }).groupByKey().values
-    val variantSetSize = conf.variantSetId().size
-    merged.filter(_.size() == variantSetSize).map(
-        related => related.flatMap(_.calls.getOrElse(Seq())).toSeq)
+  def mergeDatasets(callsets: RDD[Variant], variantSetSize: Int,
+      broadcastIndexes: Broadcast[Map[String, Int]]) = {
+    val broadcastIndexes = sc.broadcast(indexes)
+    callsets.map(variant =>
+      (VariantsPcaDriver.getVariantKey(variant), variant))
+      .mapValues(
+          VariantsPcaDriver.extractCallInfo(_, broadcastIndexes.value))
+      .groupByKey
+      .values
+      .filter(_.size() == variantSetSize)
+      .map(related => related.flatMap(calls => calls).toSeq)
   }
 
   /**
@@ -261,3 +275,5 @@ class VariantsPcaDriver(conf: PcaConf) {
     else
       Option(new VariantsRddStats(sc))
 }
+
+case class CallData(hasVariation: Boolean, callsetId: Int) extends Serializable
