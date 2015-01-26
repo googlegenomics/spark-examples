@@ -31,6 +31,7 @@ import com.google.cloud.genomics.utils.Paginator
 import org.apache.spark.Accumulator
 import com.google.cloud.genomics.utils.GenomicsFactory.OfflineAuth
 import com.google.cloud.genomics.utils.Contig
+import spray.json._
 
 /**
  * A serializable version of the Variant.
@@ -40,7 +41,7 @@ import com.google.cloud.genomics.utils.Contig
  */
 
 case class Call(callsetId: String, callsetName: String, genotype: List[Integer],
-    genotypeLikelihood: Option[List[JDouble]], phaseset: String,
+    genotypeLikelihood: Option[List[JDouble]], phaseset: Option[String],
     info: Map[String, JList[String]]) extends Serializable
 
 
@@ -70,7 +71,7 @@ case class Variant(contig: String, id: String, names: Option[List[String]],
         .setCallSetName(c.callsetName)
         .setGenotype(c.genotype)
         .setInfo(c.info)
-        .setPhaseset(c.phaseset)
+        .setPhaseset(c.phaseset.get)
         if (c.genotypeLikelihood isDefined) call.setGenotypeLikelihood(c.genotypeLikelihood.get)
 
         call
@@ -98,7 +99,7 @@ object VariantsBuilder {
                   Some(c.getGenotypeLikelihood.toList)
                 else
                   None,
-                c.getPhaseset,
+                Option(c.getPhaseset),
                 if (c.containsKey("info"))
                   c.getInfo.toMap
                 else
@@ -213,7 +214,6 @@ class VariantsRDD(sc: SparkContext,
   }
 }
 
-
 /**
  * Defines a search range over a contig.
  */
@@ -247,4 +247,28 @@ class VariantsPartitioner(variants: Seq[Contig],
         VariantsPartition(shard._2, variantSetId, shard._1)
       }.toArray
   }
+}
+
+object VariantJsonProtocol extends DefaultJsonProtocol {
+  implicit object jintegerFormat extends JsonFormat[Integer] {
+    def write(i: Integer) = JsNumber(i)
+    def read(value: JsValue) = value match {
+      case JsNumber(x) => x.intValue
+      case x => deserializationError("Expected Integer as JsNumber, but got " + x)
+    }
+  }
+  implicit object jdoubleFormat extends JsonFormat[JDouble] {
+    def write(d: JDouble) = JsNumber(d)
+    def read(value: JsValue) = value match {
+      case JsNumber(x) => x.doubleValue
+      case x => deserializationError("Expected JDouble as JsNumber, but got " + x)
+    }
+  }
+  implicit def jlistFormat[A: JsonFormat] = new RootJsonFormat[JList[A]] {
+    def write(l: JList[A]) = JsArray(asScalaBuffer(l).map(_.toJson).toVector)
+    def read(value: JsValue) = new java.util.ArrayList[A]()
+  }
+  implicit val callFormat = jsonFormat6(Call)
+  implicit val variantFormat = jsonFormat11(Variant)
+  implicit val variantKeyFormat = jsonFormat2(VariantKey)
 }

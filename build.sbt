@@ -27,6 +27,7 @@ libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "provided",
   "org.rogach" %% "scallop" % "0.9.5",
+  "io.spray" %% "spray-json" % "1.3.1",
   "org.scalatest" %% "scalatest" % "2.2.1" % "test"
 )
 
