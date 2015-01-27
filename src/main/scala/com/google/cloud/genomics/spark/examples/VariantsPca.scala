@@ -95,6 +95,7 @@ class VariantsPcaDriver(conf: PcaConf) {
         callset => callset.getId()).toSeq.zipWithIndex.toMap
     val names = callsets.map(
         callset => (callset.getId(), callset.getName())).toMap
+    println(s"Matrix size: ${indexes.size}.")
     (indexes, names)
   }
 
@@ -189,6 +190,8 @@ class VariantsPcaDriver(conf: PcaConf) {
         .sortByKey(true)
         .cache
     val rowSums = entries.map(_._2.foldLeft(0D)(_ + _._2)).collect
+    val nonZeroRows = rowSums.filter(_ > 0).size
+    println(s"Non zero rows in matrix: ${nonZeroRows} / ${indexes.size}.")
     val broadcastRowSums = sc.broadcast(rowSums)
     val matrixSum = rowSums.reduce(_ + _)
     val matrixMean = matrixSum / rowCount / rowCount;
@@ -214,14 +217,16 @@ class VariantsPcaDriver(conf: PcaConf) {
   }
 
   def emitResult(result: Seq[(String, Double, Double)]) {
-    val resultWithNames = result.map(
-        tuple => (names(tuple._1), tuple._2, tuple._3))
+    val resultWithNames = result.map { tuple =>
+      val dataset = tuple._1.split("-").head
+      (names(tuple._1), tuple._2, tuple._3, dataset)
+    }
     resultWithNames.sortBy(_._1).foreach(tuple =>
-      println(s"${tuple._1}\t\t${tuple._2}\t${tuple._3}"))
+      println(s"${tuple._1}\t${tuple._4}\t${tuple._2}\t${tuple._3}"))
 
     if(conf.outputPath.isDefined) {
       val resultRdd = sc.parallelize(resultWithNames)
-      resultRdd.map(tuple => s"${tuple._1}\t${tuple._2}\t${tuple._3}")
+      resultRdd.map(tuple => s"${tuple._1}\t${tuple._2}\t${tuple._3}\t${tuple._4}")
         .saveAsTextFile(conf.outputPath() + "-pca.tsv")
     }
   }
