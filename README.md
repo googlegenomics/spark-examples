@@ -81,7 +81,7 @@ Create a Google Cloud Storage bucket to store the configuration of the cluster.
 gsutil mb gs://<bucket-name>
 ```
 
-Run [Click-to-deploy Hadoop](https://cloud.google.com/solutions/hadoop/click-to-deploy) or use [bdutil](https://groups.google.com/forum/#!topic/gcp-hadoop-announce/EfQms8tK5cE) directly to create a Spark cluster.
+Run [Click-to-deploy Hadoop](https://cloud.google.com/solutions/hadoop/click-to-deploy) or use [bdutil](https://groups.google.com/forum/#!topic/gcp-hadoop-announce/EfQms8tK5cE) directly to create a Spark cluster.  **See [issue #61](http://github.com/googlegenomics/spark-examples/issues/61) for one additional temporary instruction when using bdutil.**
 
 ```
 ./bdutil -e extensions/spark/spark_env.sh -b <configbucket> deploy
