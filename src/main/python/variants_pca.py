@@ -1,4 +1,6 @@
-# export SPARK_CLASSPATH=...
+# spark-submit --jars googlegenomics-spark-examples-assembly-1.0.jar \
+#     --driver-class-path googlegenomics-spark-examples-assembly-1.0.jar \
+#     src/main/python/variants_pca.py --client-secrets client_secrets.json
 import json
 import numpy
 import operator

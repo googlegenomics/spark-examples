@@ -1,4 +1,6 @@
-# export SPARK_CLASSPATH=...
+# spark-submit --jars googlegenomics-spark-examples-assembly-1.0.jar \
+#     --driver-class-path googlegenomics-spark-examples-assembly-1.0.jar \
+#     search_variants_example_brca1.py --client-secrets client_secrets.json
 import json
 import pyspark
 import pyspark.rdd
