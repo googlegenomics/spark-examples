@@ -71,7 +71,7 @@ case class Variant(contig: String, id: String, names: Option[List[String]],
         .setCallSetName(c.callsetName)
         .setGenotype(c.genotype)
         .setInfo(c.info)
-        .setPhaseset(c.phaseset.get)
+        .setPhaseset(c.phaseset.getOrElse(null))
         if (c.genotypeLikelihood isDefined) call.setGenotypeLikelihood(c.genotypeLikelihood.get)
 
         call
