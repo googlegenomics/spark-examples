@@ -30,7 +30,7 @@ import com.google.cloud.genomics.Authentication
 object Examples {
 
   final val Google_1KG_HG00096_Readset = "CMvnhpKTFhCwvIWYw9eikzQ"
-  // From http://google-genomics.readthedocs.org/en/latest/constants.html
+  // From http://googlegenomics.readthedocs.org/en/latest/constants.html
   final val Google_Example_Readset = "CMvnhpKTFhD04eLE-q2yxnU"
   // Sage Bio DREAM Contest - Synthetic Set #3
   val Google_DREAM_Set3_Normal = "CPHG3MzoCRDRkqXzk7b6l_kB"
