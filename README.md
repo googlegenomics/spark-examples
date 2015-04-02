@@ -1,12 +1,12 @@
 spark-examples [![Build Status](https://img.shields.io/travis/googlegenomics/spark-examples.svg?style=flat)](https://travis-ci.org/googlegenomics/spark-examples)
 ==============
 
-The projects in this repository demonstrate working with genomic data accessible via the [Google Genomics API](https://developers.google.com/genomics/) using [Apache Spark](http://spark.apache.org/).
+The projects in this repository demonstrate working with genomic data accessible via the [Google Genomics API](https://cloud.google.com/genomics/) using [Apache Spark](http://spark.apache.org/).
 
 Getting Started
 ---------------
 
- 1. Follow the [sign up instructions](https://developers.google.com/genomics) and download the `client_secrets.json` file. This file can be copied to the _spark-examples_ directory.
+ 1. Follow the [sign up instructions](https://cloud.google.com/genomics/install-genomics-tools#authenticate) and download the `client_secrets.json` file. This file can be copied to the _spark-examples_ directory.
 
  2. Download and install [Apache Spark](https://spark.apache.org/downloads.html).
 
@@ -201,7 +201,7 @@ gcutil addfirewall default-allow-8080 \
 ```
 From the [developers console](https://console.developers.google.com/project),
 add the `http-8080-server` tag to the master and worker instances or follow the instructions
-[here](https://developers.google.com/compute/docs/instances#tags) to do it from the command line.
+[here](https://cloud.google.com/compute/docs/instances#tags) to do it from the command line.
 
 Then point the browser to `http://<master-node-public-ip>:8080`
 

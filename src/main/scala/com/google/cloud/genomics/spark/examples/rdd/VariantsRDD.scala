@@ -162,7 +162,7 @@ class VariantsRddStats(sc: SparkContext) extends Serializable {
 /**
  * A simple Spark RDD backed by Google Genomics VariantStore and
  * populated via the SearchVariants API call
- * (https://developers.google.com/genomics/v1beta/reference/variants/search).
+ * (https://cloud.google.com/genomics/v1beta2/reference/variants/search).
  */
 class VariantsRDD(sc: SparkContext,
     applicationName: String,

@@ -87,7 +87,7 @@ object ReadBuilder {
 
 /**
  * A simple Spark RDD backed by Google Genomics Readstore and populated
- * via the SearchReads API call (https://developers.google.com/genomics/v1beta/reference/reads/search).
+ * via the SearchReads API call (https://cloud.google.com/genomics/v1beta2/reference/reads/search).
  */
 class ReadsRDD(sc: SparkContext,
                applicationName: String,
