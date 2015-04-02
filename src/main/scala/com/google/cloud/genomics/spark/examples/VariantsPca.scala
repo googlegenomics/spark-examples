@@ -46,7 +46,9 @@ object VariantsPcaDriver {
     Logger.getLogger("org").setLevel(Level.WARN)
     val conf = new PcaConf(args)
     val driver = VariantsPcaDriver(conf)
-    val callsRdd = driver.getCallsRdd
+    val data = driver.getData.map(kv => kv._2)
+    val filtered = driver.filterDataset(data)
+    val callsRdd = driver.getCallsRdd(filtered)
     val simMatrix = driver.getSimilarityMatrix(callsRdd)
     val result = driver.computePca(simMatrix)
     driver.emitResult(result)
@@ -116,22 +118,23 @@ class VariantsPcaDriver(conf: PcaConf) {
   }
 
   /**
-   * Returns an RDD of variant callsets with each call mapped to a position.
+   * Filter datasets according to the specified flags.
+   *
+   * Possible flags include:
+   *   --min-allele-frequency
    */
-  def getCallsRdd: RDD[Seq[Int]] = {
-    val variantSetSize = conf.variantSetId().size
-    val values = getData.map(kv => kv._2)
-    val broadcastIndexes = sc.broadcast(indexes)
-    val callsets = if (variantSetSize == 1)
-      values.map(
-          VariantsPcaDriver.extractCallInfo(_, broadcastIndexes.value))
-    else
-      mergeDatasets(values, variantSetSize, broadcastIndexes)
-    return callsets
-      .map(calls => calls.filter(_.hasVariation))
-       // Return only those sets that have at least one call with variation.
-      .filter(_.size > 0)
-      .map(_.map(_.callsetId))
+  def filterDataset(data: RDD[Variant]) = {
+    if (conf.minAlleleFrequency.isDefined) {
+      val minAlleleFrequency = conf.minAlleleFrequency()
+      println(s"Min allele frequency ${minAlleleFrequency}.")
+      data.filter(variant => {
+        val alleleFrequency = variant.info.get("AF")
+        alleleFrequency.map(_.get(0).toFloat > minAlleleFrequency)
+          .getOrElse(false)
+      })
+    } else {
+      data
+    }
   }
 
   /**
@@ -140,7 +143,7 @@ class VariantsPcaDriver(conf: PcaConf) {
    * The key is composed by the reference name its start and end positions,
    * as well as the reference and alternate bases.
    */
-  def mergeDatasets(callsets: RDD[Variant], variantSetSize: Int,
+  def mergeDatasets(callsets: RDD[Variant], variantSetCount: Int,
       broadcastIndexes: Broadcast[Map[String, Int]]) = {
     val broadcastIndexes = sc.broadcast(indexes)
     callsets.map(variant =>
@@ -149,8 +152,25 @@ class VariantsPcaDriver(conf: PcaConf) {
           VariantsPcaDriver.extractCallInfo(_, broadcastIndexes.value))
       .groupByKey
       .values
-      .filter(_.size() == variantSetSize)
+      .filter(_.size() == variantSetCount)
       .map(related => related.flatMap(calls => calls).toSeq)
+  }
+
+  /**
+   * Returns an RDD of variant callsets with each call mapped to a position.
+   */
+  def getCallsRdd(data: RDD[Variant]): RDD[Seq[Int]] = {
+    val variantSetCount = conf.variantSetId().size
+    val broadcastIndexes = sc.broadcast(indexes)
+    val callsets = if (variantSetCount == 1)
+      data.map(VariantsPcaDriver.extractCallInfo(_, broadcastIndexes.value))
+    else
+      mergeDatasets(data, variantSetCount, broadcastIndexes)
+    return callsets
+      .map(calls => calls.filter(_.hasVariation))
+       // Return only those sets that have at least one call with variation.
+      .filter(_.size > 0)
+      .map(_.map(_.callsetId))
   }
 
   /**
