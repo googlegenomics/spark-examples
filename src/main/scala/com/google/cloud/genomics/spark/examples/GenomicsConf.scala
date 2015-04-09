@@ -29,7 +29,6 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
       descr = "Partition each reference using a fixed number of bases")
   val clientSecrets = opt[String](default = Some("client_secrets.json"))
   val inputPath = opt[String]()
-  val jarPath = opt[String]()
   val numReducePartitions = opt[Int](default = Some(10),
       descr = "Set it to a " +
       "number greater than the number of cores, to achieve maximum " +
@@ -37,23 +36,18 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
   val outputPath = opt[String]()
   val references = opt[String](default=Some(Contig.BRCA1),
       descr = "Comma separated tuples of reference:start:end,...")
-  val sparkMaster = opt[String](default = Some("local[2]"))
-  val sparkPath = opt[String](default = Some(""))
+  val sparkMaster = opt[String](
+      descr = "A spark master URL. Leave empty if using spark-submit.")
   val variantSetId = opt[String](
     default = Some(GoogleGenomicsPublicData.Thousand_Genomes_Phase_1),
       descr = "VariantSetId to use in the analysis.")
 
   def newSparkContext(className: String) = {
-    val jarPath = if (this.jarPath.isDefined)
-      Seq(this.jarPath())
-    else
-      Seq[String]()
     val conf = new SparkConf()
-      .setMaster(this.sparkMaster())
       .setAppName(className)
-      .setSparkHome(this.sparkPath())
-      .setJars(jarPath)
       .set("spark.shuffle.consolidateFiles", "true")
+    if (this.sparkMaster.isDefined)
+      conf.setMaster(this.sparkMaster())
     new SparkContext(conf)
   }
 
