@@ -17,12 +17,16 @@ package com.google.cloud.genomics.spark.examples
 
 import org.apache.log4j.Level
 import org.apache.log4j.Logger
+import org.apache.spark.rdd.RDD
+import org.apache.spark.SparkContext
 import com.google.cloud.genomics.spark.examples.rdd.Variant
+import com.google.cloud.genomics.spark.examples.rdd.VariantJsonProtocol._
 import com.google.cloud.genomics.spark.examples.rdd.VariantKey
 import com.google.cloud.genomics.spark.examples.rdd.VariantsPartitioner
 import com.google.cloud.genomics.spark.examples.rdd.VariantsRDD
 import com.google.cloud.genomics.Authentication
 import com.google.cloud.genomics.utils.Contig
+import spray.json._
 
 object GoogleGenomicsPublicData {
   final val Platinum_Genomes =   "3049512673186936334"
@@ -85,18 +89,28 @@ object SearchVariantsExampleKlotho {
  * This example pulls all variants that overlap BRCA1.
  */
 object SearchVariantsExampleBRCA1 {
-  def main(args: Array[String]) = {
-    val conf = new GenomicsConf(args)
-    val applicationName = this.getClass.getName
-    val sc = conf.newSparkContext(applicationName)
-    Logger.getLogger("org").setLevel(Level.WARN)
+  def createRdd(sc: SparkContext, args: Array[String]): VariantsRDD = {
     val brca1 = Seq(new Contig("chr17", 41196311L, 41277499L))
+    val conf = new GenomicsConf(args)
     val accessToken = Authentication.getAccessToken(conf.clientSecrets())
     val data = new VariantsRDD(sc,
         this.getClass.getName,
         accessToken,
         GoogleGenomicsPublicData.Platinum_Genomes,
         new VariantsPartitioner(brca1, conf.basesPerPartition()))
+    return data
+  }
+
+  def createJsonRdd(sc: SparkContext, args: Array[String]): RDD[String] = {
+    createRdd(sc, args).map(x => { x.toJson.compactPrint })
+  }
+
+  def main(args: Array[String]) = {
+    val applicationName = this.getClass.getName
+    val conf = new GenomicsConf(args)
+    val sc = conf.newSparkContext(applicationName)
+    Logger.getLogger("org").setLevel(Level.WARN)
+    val data = createRdd(sc, args)
     data.cache() // The amount of data is small since its just for one gene
     println("We have " + data.count() + " records that overlap BRCA1.")
     println("But only " + data.filter { kv =>

@@ -30,11 +30,13 @@ import com.google.cloud.genomics.Authentication
 import com.google.cloud.genomics.Client
 import com.google.cloud.genomics.spark.examples.rdd.Variant
 import com.google.cloud.genomics.spark.examples.rdd.VariantKey
+import com.google.cloud.genomics.spark.examples.rdd.VariantJsonProtocol._
 import com.google.cloud.genomics.spark.examples.rdd.VariantsPartitioner
 import com.google.cloud.genomics.spark.examples.rdd.VariantsRDD
 import com.google.cloud.genomics.utils.Paginator
 import breeze.linalg._
 import com.google.cloud.genomics.spark.examples.rdd.VariantsRddStats
+import spray.json._
 
 object VariantsPcaDriver {
 
@@ -53,10 +55,11 @@ object VariantsPcaDriver {
   def apply(conf: PcaConf) = new VariantsPcaDriver(conf)
 }
 
-class VariantsPcaDriver(conf: PcaConf) {
+class VariantsPcaDriver(conf: PcaConf, ctx: SparkContext = null) {
 
   private val applicationName = this.getClass.getName
-  private val sc = conf.newSparkContext(this.getClass.getName)
+  private val sc = { if (ctx != null) ctx
+                     else conf.newSparkContext(applicationName) }
   private val auth = Authentication.getAccessToken(conf.clientSecrets())
   private val ioStats = createIoStats
 
@@ -82,6 +85,8 @@ class VariantsPcaDriver(conf: PcaConf) {
         stats=ioStats)
     }
   }
+
+  def getJsonData: RDD[String] = getData.map(_.toJson.compactPrint)
 
   /**
    * Returns an RDD of variant callsets with each call mapped to an position.
