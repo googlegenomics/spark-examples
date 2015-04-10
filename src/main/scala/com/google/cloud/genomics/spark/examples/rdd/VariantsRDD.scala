@@ -28,6 +28,7 @@ import com.google.api.services.genomics.model.SearchVariantsRequest
 import com.google.api.services.genomics.model.{Variant => VariantModel}
 import com.google.cloud.genomics.Client
 import com.google.cloud.genomics.utils.Paginator
+import com.google.cloud.genomics.utils.Paginator.ShardBoundary
 import org.apache.spark.Accumulator
 import com.google.cloud.genomics.utils.GenomicsFactory.OfflineAuth
 import com.google.cloud.genomics.utils.Contig
@@ -186,7 +187,7 @@ class VariantsRDD(sc: SparkContext,
   override def compute(part: Partition, ctx: TaskContext):
     Iterator[(VariantKey, Variant)] = {
     val client = Client(auth)
-    val reads = Paginator.Variants.create(client.genomics)
+    val reads = Paginator.Variants.create(client.genomics, ShardBoundary.STRICT)
     val partition = part.asInstanceOf[VariantsPartition]
     val req = partition.getVariantsRequest
     val iterator = reads.search(req).iterator().map(variant => {

@@ -21,6 +21,7 @@ import org.rogach.scallop.ScallopConf
 import org.apache.spark.SparkConf
 import com.google.cloud.genomics.Client
 import com.google.cloud.genomics.utils.Contig
+import com.google.cloud.genomics.utils.Contig.SexChromosomeFilter
 import com.google.api.services.genomics.Genomics
 
 class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
@@ -57,7 +58,7 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
 }
 
 object PcaConf {
-  val ExcludeXY = true
+  val ExcludeXY = SexChromosomeFilter.EXCLUDE_XY
 }
 
 class PcaConf(arguments: Seq[String]) extends GenomicsConf(arguments) {
