@@ -39,7 +39,8 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
   val outputPath = opt[String]()
   val references = opt[List[String]](default=Some(List(Contig.BRCA1)),
       descr = "Comma separated tuples of reference:start:end,... " +
-      "one per variantset, in the corresponding order.")
+      "one list of tuples should be specified per variantset " +
+      "in the corresponding order.")
   val sparkMaster = opt[String](
       descr = "A spark master URL. Leave empty if using spark-submit.")
   val variantSetId = opt[List[String]](
@@ -70,24 +71,28 @@ class PcaConf(arguments: Seq[String]) extends GenomicsConf(arguments) {
   val allReferences = opt[Boolean](
       descr =  "Use all references (except X and Y) to compute PCA " +
       "(overrides --references).")
+  val debugDatasets = opt[Boolean]()
   val minAlleleFrequency = opt[Float]()
   val numPc = opt[Int](default = Some(2))
 
   /**
-   * Returns either the parsed references from --references or all references
+   * Returns either the parsed references for all datasets and their
+   * corresponding  --references or all references
    * except X and Y if --all-references is specified.
    */
   def getReferences(client: Genomics, variantSetIds: List[String]) = {
-    println(s"Running PCA on ${variantSetIds.length} references.")
-    variantSetIds.zip(this.references()).map {
-      case (variantSetId, references)  =>
-      if (this.allReferences()) {
+    println(s"Running PCA on ${variantSetIds.length} datasets.")
+    if (this.allReferences()) {
+      variantSetIds.map { variantSetId =>
         println(s"Variantset: ${variantSetId}; All refs, exclude XY")
         Contig.getContigsInVariantSet(client, variantSetId, PcaConf.ExcludeXY)
-      } else {
-        println(s"Variantset: ${variantSetId}; Refs: ${references}")
-        Contig.parseContigsFromCommandLine(references)
-      }
-    }.flatten
+      }.flatten
+    } else {
+      variantSetIds.zip(this.references()).map {
+        case (variantSetId, references)  =>
+          println(s"Variantset: ${variantSetId}; Refs: ${references}")
+          Contig.parseContigsFromCommandLine(references)
+      }.flatten
+    }
   }
 }

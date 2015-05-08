@@ -86,9 +86,17 @@ case class Variant(contig: String, id: String, names: Option[List[String]],
 
 object VariantsBuilder {
 
+  val refNameRegex = """([a-z]*)?([0-9]*)""".r
+
+  def normalize(referenceName: String) = {
+    referenceName match {
+      case refNameRegex(ref, id) => Some(id)
+      case _ => None
+    }
+  }
+
   def build(r: VariantModel) = {
     val variantKey = VariantKey(r.getReferenceName, r.getStart)
-
     val calls = if (r.containsKey("calls"))
         Some(r.getCalls().map(
             c => Call(
@@ -107,31 +115,37 @@ object VariantsBuilder {
       else
         None
 
-    val variant = Variant(
-        r.getReferenceName,
-        r.getId,
-        if (r.containsKey("names"))
-          Some(r.getNames.toList)
-        else
-          None,
-        r.getStart,
-        r.getEnd,
-        r.getReferenceBases,
-        if (r.containsKey("alternateBases"))
-          Some(r.getAlternateBases.toList)
-        else
-          None,
-        if (r.containsKey("info"))
-          r.getInfo.toMap
-        else
-          Map[String,java.util.List[String]](),
-        if (r.containsKey("created"))
-          r.getCreated
-        else
-          0L,
-        r.getVariantSetId,
-        calls)
-    (variantKey, variant)
+    val referenceName = normalize(r.getReferenceName)
+
+    if (referenceName.isEmpty) {
+      None;
+    } else {
+      val variant = Variant(
+          referenceName.get,
+          r.getId,
+          if (r.containsKey("names"))
+            Some(r.getNames.toList)
+          else
+            None,
+          r.getStart,
+          r.getEnd,
+          r.getReferenceBases,
+          if (r.containsKey("alternateBases"))
+            Some(r.getAlternateBases.toList)
+          else
+            None,
+          if (r.containsKey("info"))
+            r.getInfo.toMap
+          else
+            Map[String,java.util.List[String]](),
+          if (r.containsKey("created"))
+            r.getCreated
+          else
+            0L,
+          r.getVariantSetId,
+          calls)
+      Some((variantKey, variant))
+    }
   }
 }
 
@@ -190,7 +204,7 @@ class VariantsRDD(sc: SparkContext,
     val iterator = reads.search(req).iterator().map(variant => {
       stats map { _.variantsAccum += 1 }
       VariantsBuilder.build(variant)
-    })
+    }).filter(_.isDefined).map(_.get)
     stats map { stat =>
         stat.partitionsAccum += 1
         stat.referenceBasesAccum += (partition.range)
