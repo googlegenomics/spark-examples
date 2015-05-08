@@ -88,7 +88,6 @@ object VariantsBuilder {
 
   def build(r: VariantModel) = {
     val variantKey = VariantKey(r.getReferenceName, r.getStart)
-
     val calls = if (r.containsKey("calls"))
         Some(r.getCalls().map(
             c => Call(
@@ -107,8 +106,9 @@ object VariantsBuilder {
       else
         None
 
+    val refNameRegex = """([a-z]*)?([0-9]*)""".r
     val variant = Variant(
-        r.getReferenceName,
+        r.getReferenceName match { case refNameRegex(ref, id) => id},
         r.getId,
         if (r.containsKey("names"))
           Some(r.getNames.toList)
