@@ -66,7 +66,7 @@ Run on Google Compute Engine
 
 If you have not done so already, follow the [instructions](https://cloud.google.com/hadoop/) to setup the Google Cloud SDK and bdutil. At the end of the process you should have launched a small cluster and logged into it using `gcloud compute`.
 
-(1) Use [bdutil](https://cloud.google.com/hadoop/bdutil) to deploy the cluster with Spark enabled.  **bdutil does not yet deploy Spark 1.3 by default. Make [these edits](https://github.com/GoogleCloudPlatform/bdutil/commit/141480076280cdf1fe26fed5da950b54b87803d2) to the relevant files to deploy a cluster running Spark 1.3.**
+(1) Use [bdutil](https://cloud.google.com/hadoop/bdutil) to deploy the cluster with Spark enabled.  **bdutil version 1.2.1 or higher is required. (see the setup instructions [here](http://googlegenomics.readthedocs.org/en/latest/use_cases/compute_principal_coordinate_analysis/index.html#id4)).**
 ```
 ./bdutil -e extensions/spark/spark_env.sh deploy
 ```
