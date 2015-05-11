@@ -25,6 +25,7 @@ import com.google.api.services.genomics.model.{Read => ReadModel}
 import com.google.api.services.genomics.model.SearchReadsRequest
 import com.google.cloud.genomics.Client
 import com.google.cloud.genomics.utils.Paginator
+import com.google.cloud.genomics.utils.Paginator.ShardBoundary
 import com.google.api.services.genomics.model.CigarUnit
 import com.google.cloud.genomics.utils.GenomicsFactory.OfflineAuth
 
@@ -105,7 +106,7 @@ class ReadsRDD(sc: SparkContext,
   override def compute(part: Partition, ctx: TaskContext):
     Iterator[(ReadKey, Read)] = {
     val client = Client(auth).genomics
-    val reads = Paginator.Reads.create(client)
+    val reads = Paginator.Reads.create(client, ShardBoundary.STRICT)
     val partition = part.asInstanceOf[ReadsPartition]
     val req = new SearchReadsRequest()
       .setReadGroupSetIds(partition.readGroupSetIds)
