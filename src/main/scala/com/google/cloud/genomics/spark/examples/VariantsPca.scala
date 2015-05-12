@@ -67,15 +67,19 @@ object VariantsPcaDriver {
             mapping(call.callsetId)))
  }
 
-  def getVariantKey(variant: Variant) = {
+  def getVariantKey(variant: Variant, debug:Boolean = false) = {
+    val alternateBases = variant.alternateBases.map(
+               altBases => altBases.mkString("")).getOrElse("")
+    if (debug) {
+      println(s"${variant.contig}: (${variant.start}, ${variant.end}) ref=${variant.referenceBases} alt=${alternateBases}")
+    }
     Hashing.murmur3_128().newHasher()
        .putString(variant.contig, Charsets.UTF_8)
        .putLong(variant.start)
        .putLong(variant.end)
        .putString(variant.referenceBases, Charsets.UTF_8)
        .putString(
-           variant.alternateBases.map(
-               altBases => altBases.mkString("")).getOrElse(""),
+           alternateBases,
            Charsets.UTF_8)
       .hash().toString()
   }
@@ -146,8 +150,9 @@ class VariantsPcaDriver(conf: PcaConf) {
   def joinDatasets(datasets: List[RDD[Variant]],
       broadcastIndexes: Broadcast[Map[String, Int]]): RDD[Seq[CallData]] = {
     val broadcastIndexes = sc.broadcast(indexes)
+    val debugDatasets = conf.debugDatasets.isDefined
     val callsets = datasets.map(_.map(variant =>
-      (VariantsPcaDriver.getVariantKey(variant), variant))
+      (VariantsPcaDriver.getVariantKey(variant, debugDatasets), variant))
       .mapValues(
           VariantsPcaDriver.extractCallInfo(_, broadcastIndexes.value)))
     val callset1 = callsets(0)

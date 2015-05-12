@@ -70,6 +70,7 @@ class PcaConf(arguments: Seq[String]) extends GenomicsConf(arguments) {
   val allReferences = opt[Boolean](
       descr =  "Use all references (except X and Y) to compute PCA " +
       "(overrides --references).")
+  val debugDatasets = opt[Boolean]()
   val minAlleleFrequency = opt[Float]()
   val numPc = opt[Int](default = Some(2))
 
