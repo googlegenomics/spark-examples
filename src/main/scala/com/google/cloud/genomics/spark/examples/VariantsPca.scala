@@ -26,6 +26,7 @@ import org.apache.spark.rdd.RDD
 import com.google.api.services.genomics.Genomics
 import com.google.api.services.genomics.model.CallSet
 import com.google.api.services.genomics.model.SearchCallSetsRequest
+import com.google.api.services.genomics.model.{Variant => VariantModel}
 import com.google.cloud.genomics.Authentication
 import com.google.cloud.genomics.Client
 import com.google.cloud.genomics.spark.examples.rdd.Variant
@@ -53,10 +54,11 @@ object VariantsPcaDriver {
   def apply(conf: PcaConf) = new VariantsPcaDriver(conf)
 }
 
-class VariantsPcaDriver(conf: PcaConf) {
+class VariantsPcaDriver(conf: PcaConf, ctx: SparkContext = null) {
 
   private val applicationName = this.getClass.getName
-  private val sc = conf.newSparkContext(this.getClass.getName)
+  private val sc = { if (ctx != null) ctx
+                     else conf.newSparkContext(applicationName) }
   private val auth = Authentication.getAccessToken(conf.clientSecrets())
   private val ioStats = createIoStats
 
@@ -82,6 +84,8 @@ class VariantsPcaDriver(conf: PcaConf) {
         stats=ioStats)
     }
   }
+
+  def getJavaData: RDD[VariantModel] = getData.map(_._2.toJavaVariant)
 
   /**
    * Returns an RDD of variant callsets with each call mapped to an position.
