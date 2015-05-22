@@ -150,7 +150,7 @@ class VariantsPcaDriver(conf: PcaConf) {
   def joinDatasets(datasets: List[RDD[Variant]],
       broadcastIndexes: Broadcast[Map[String, Int]]): RDD[Seq[CallData]] = {
     val broadcastIndexes = sc.broadcast(indexes)
-    val debugDatasets = conf.debugDatasets.isDefined
+    val debugDatasets = conf.debugDatasets()
     val callsets = datasets.map(_.map(variant =>
       (VariantsPcaDriver.getVariantKey(variant, debugDatasets), variant))
       .mapValues(
