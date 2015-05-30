@@ -65,7 +65,7 @@ object SearchVariantsExampleKlotho {
     }
     variants.collect.foreach { kv =>
       val (key, variant) = kv
-      println(s"Reference: ${variant.contig} @ ${variant.position}")
+      println(s"Reference: ${variant.contig} @ ${variant.start}")
     }
 
     // Exercise conversion from scala objects back to java objects.  This
