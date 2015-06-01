@@ -23,6 +23,7 @@ import org.apache.spark.SparkContext._
 import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.mllib.linalg.distributed.RowMatrix
 import org.apache.spark.rdd.RDD
+import org.apache.spark.broadcast.Broadcast
 import com.google.api.services.genomics.Genomics
 import com.google.api.services.genomics.model.CallSet
 import com.google.api.services.genomics.model.SearchCallSetsRequest
@@ -36,6 +37,10 @@ import com.google.cloud.genomics.spark.examples.rdd.VariantsRDD
 import com.google.cloud.genomics.utils.Paginator
 import breeze.linalg._
 import com.google.cloud.genomics.spark.examples.rdd.VariantsRddStats
+import org.apache.spark.rdd.UnionRDD
+import com.google.common.hash.Hashing
+import com.google.common.base.Charsets
+import org.apache.spark.Partitioner
 
 object VariantsPcaDriver {
 
@@ -43,7 +48,9 @@ object VariantsPcaDriver {
     Logger.getLogger("org").setLevel(Level.WARN)
     val conf = new PcaConf(args)
     val driver = VariantsPcaDriver(conf)
-    val callsRdd = driver.getCallsRdd
+    val data = driver.getData
+    val filtered = data.map(driver.filterDataset)
+    val callsRdd = driver.getCallsRdd(filtered)
     val simMatrix = driver.getSimilarityMatrix(callsRdd)
     val result = driver.computePca(simMatrix)
     driver.emitResult(result)
@@ -52,6 +59,31 @@ object VariantsPcaDriver {
   }
 
   def apply(conf: PcaConf) = new VariantsPcaDriver(conf)
+
+  // The following functions are defined on the companion object so they can be
+  // serialized and used on the RDD functions.
+  def extractCallInfo(variant: Variant, mapping: Map[String, Int]) = {
+    variant.calls.getOrElse(Seq()).map(
+        call => CallData(call.genotype.foldLeft(false)(_ || _ > 0),
+            mapping(call.callsetId)))
+ }
+
+  def getVariantKey(variant: Variant, debug:Boolean = false) = {
+    val alternateBases = variant.alternateBases.map(
+               altBases => altBases.mkString("")).getOrElse("")
+    if (debug) {
+      println(s"${variant.contig}: (${variant.start}, ${variant.end}) ref=${variant.referenceBases} alt=${alternateBases}")
+    }
+    Hashing.murmur3_128().newHasher()
+       .putString(variant.contig, Charsets.UTF_8)
+       .putLong(variant.start)
+       .putLong(variant.end)
+       .putString(variant.referenceBases, Charsets.UTF_8)
+       .putString(
+           alternateBases,
+           Charsets.UTF_8)
+      .hash().toString()
+  }
 }
 
 class VariantsPcaDriver(conf: PcaConf, ctx: SparkContext = null) {
@@ -62,46 +94,117 @@ class VariantsPcaDriver(conf: PcaConf, ctx: SparkContext = null) {
   private val auth = Authentication.getAccessToken(conf.clientSecrets())
   private val ioStats = createIoStats
 
-  val indexes: Map[String, Int] = {
+  val (indexes, names) = {
     val client = Client(auth).genomics
     val searchCallsets = Paginator.Callsets.create(client)
     val req = new SearchCallSetsRequest()
-        .setVariantSetIds(List(conf.variantSetId()))
-    searchCallsets.search(req).iterator()
-      .map(callSet => callSet.getSampleId).toSeq.zipWithIndex.toMap
+        .setVariantSetIds(conf.variantSetId())
+    val callsets = searchCallsets.search(req).iterator().toSeq
+    val indexes = callsets.map(
+        callset => callset.getId()).toSeq.zipWithIndex.toMap
+    val names = callsets.map(
+        callset => (callset.getId(), callset.getName())).toMap
+    println(s"Matrix size: ${indexes.size}.")
+    (indexes, names)
   }
 
-  private def getData: RDD[(VariantKey, Variant)] = {
+  private def getData = {
     if (conf.inputPath.isDefined) {
-      sc.objectFile[(VariantKey, Variant)](conf.inputPath())
+      List(sc.objectFile[(VariantKey, Variant)](conf.inputPath()).map(_._2))
     } else {
       val client = Client(auth).genomics
       val contigs = conf.getReferences(client, conf.variantSetId()).toArray
-      println(s"Running PCA on ${contigs.length} references.")
-      new VariantsRDD(sc, this.getClass.getName, auth,
-        conf.variantSetId(),
-        new VariantsPartitioner(contigs, conf.basesPerPartition()),
-        stats=ioStats)
+      val variantSets = conf.variantSetId()
+      conf.variantSetId().map { variantSetId =>
+        new VariantsRDD(sc, this.getClass.getName, auth,
+          variantSetId,
+          new VariantsPartitioner(contigs, conf.basesPerPartition()),
+          stats=ioStats).map(_._2)
+      }
     }
   }
 
-  def getJavaData: RDD[VariantModel] = getData.map(_._2.toJavaVariant)
+  // For now assume a single dataset when invoking from python.
+  def getJavaData: RDD[VariantModel] = getData.head.map(_.toJavaVariant)
 
   /**
-   * Returns an RDD of variant callsets with each call mapped to an position.
+   * Filter datasets according to the specified flags.
+   *
+   * Possible flags include:
+   *   --min-allele-frequency
    */
-  def getCallsRdd: RDD[Seq[Int]] = {
-    val samplesWithVariant = getData.map(kv => kv._2)
-      .map(_.calls.getOrElse(Seq()))
-      .map(calls => calls.filter(_.genotype.foldLeft(false)(_ || _ > 0)))
-      // Keep only those variants that have at least one call.
+  def filterDataset(data: RDD[Variant]) = {
+    if (conf.minAlleleFrequency.isDefined) {
+      val minAlleleFrequency = conf.minAlleleFrequency()
+      println(s"Min allele frequency ${minAlleleFrequency}.")
+      data.filter(variant => {
+        val alleleFrequency = variant.info.get("AF")
+        alleleFrequency.map(_.get(0).toFloat > minAlleleFrequency)
+          .getOrElse(false)
+      })
+    } else {
+      data
+    }
+  }
+  /**
+   * Returns an RDD of calls joined by their variant matching key.
+   *
+   * The key is composed by the reference name its start and end positions,
+   * as well as the reference and alternate bases.
+   */
+  def joinDatasets(datasets: List[RDD[Variant]],
+      broadcastIndexes: Broadcast[Map[String, Int]]): RDD[Seq[CallData]] = {
+    val broadcastIndexes = sc.broadcast(indexes)
+    val debugDatasets = conf.debugDatasets()
+    val callsets = datasets.map(_.map(variant =>
+      (VariantsPcaDriver.getVariantKey(variant, debugDatasets), variant))
+      .mapValues(
+          VariantsPcaDriver.extractCallInfo(_, broadcastIndexes.value)))
+    val callset1 = callsets(0)
+    val callset2 = callsets(1)
+    callset1.join(callset2, conf.numReducePartitions())
+      .values
+      .map(related => related._1 ++ related._2)
+  }
+
+  /**
+   * Returns an RDD of calls merged by their variant matching key.
+   *
+   * The key is composed by the reference name its start and end positions,
+   * as well as the reference and alternate bases.
+   */
+  def mergeDatasets(data: List[RDD[Variant]], variantSetCount: Int,
+      broadcastIndexes: Broadcast[Map[String, Int]]): RDD[Seq[CallData]]= {
+    val callsets = new UnionRDD(sc, data)
+    val broadcastIndexes = sc.broadcast(indexes)
+    callsets.map(variant =>
+      (VariantsPcaDriver.getVariantKey(variant), variant))
+      .mapValues(
+          VariantsPcaDriver.extractCallInfo(_, broadcastIndexes.value))
+      .groupByKey(conf.numReducePartitions())
+      .values
+      .filter(_.size() == variantSetCount)
+      .map(related => related.flatMap(calls => calls).toSeq)
+  }
+
+  /**
+   * Returns an RDD of variant callsets with each call mapped to a position.
+   */
+  def getCallsRdd(data: List[RDD[Variant]]): RDD[Seq[Int]] = {
+    val variantSetCount = conf.variantSetId().size
+    val broadcastIndexes = sc.broadcast(indexes)
+    val callsets = if (variantSetCount == 1) {
+      data.head.map(VariantsPcaDriver.extractCallInfo(_, broadcastIndexes.value))
+    } else if (variantSetCount == 2) {
+      joinDatasets(data, broadcastIndexes)
+    } else {
+      mergeDatasets(data, variantSetCount, broadcastIndexes)
+    }
+    return callsets
+      .map(calls => calls.filter(_.hasVariation))
+       // Return only those sets that have at least one call with variation.
       .filter(_.size > 0)
-    val broadcastNames = sc.broadcast(indexes)
-    val callsets = samplesWithVariant.map(_.map(_.callsetName))
-    callsets.map(callset => {
-      val mapping = broadcastNames.value
-      callset.map(mapping(_).toInt)
-    })
+      .map(_.map(_.callsetId))
   }
 
   /**
@@ -141,6 +244,8 @@ class VariantsPcaDriver(conf: PcaConf, ctx: SparkContext = null) {
         .sortByKey(true)
         .cache
     val rowSums = entries.map(_._2.foldLeft(0D)(_ + _._2)).collect
+    val nonZeroRows = rowSums.filter(_ > 0).size
+    println(s"Non zero rows in matrix: ${nonZeroRows} / ${indexes.size}.")
     val broadcastRowSums = sc.broadcast(rowSums)
     val matrixSum = rowSums.reduce(_ + _)
     val matrixMean = matrixSum / rowCount / rowCount;
@@ -166,12 +271,16 @@ class VariantsPcaDriver(conf: PcaConf, ctx: SparkContext = null) {
   }
 
   def emitResult(result: Seq[(String, Double, Double)]) {
-    result.sortBy(_._1).foreach(tuple =>
-      println(s"${tuple._1}\t\t${tuple._2}\t${tuple._3}"))
+    val resultWithNames = result.map { tuple =>
+      val dataset = tuple._1.split("-").head
+      (names(tuple._1), tuple._2, tuple._3, dataset)
+    }
+    resultWithNames.sortBy(_._1).foreach(tuple =>
+      println(s"${tuple._1}\t${tuple._4}\t${tuple._2}\t${tuple._3}"))
 
     if(conf.outputPath.isDefined) {
-      val resultRdd = sc.parallelize(result)
-      resultRdd.map(tuple => s"${tuple._1}\t${tuple._2}\t${tuple._3}")
+      val resultRdd = sc.parallelize(resultWithNames)
+      resultRdd.map(tuple => s"${tuple._1}\t${tuple._2}\t${tuple._3}\t${tuple._4}")
         .saveAsTextFile(conf.outputPath() + "-pca.tsv")
     }
   }
@@ -225,3 +334,5 @@ class VariantsPcaDriver(conf: PcaConf, ctx: SparkContext = null) {
     else
       Option(new VariantsRddStats(sc))
 }
+
+case class CallData(hasVariation: Boolean, callsetId: Int) extends Serializable
