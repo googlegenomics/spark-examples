@@ -124,7 +124,8 @@ class VariantsPcaDriver(conf: PcaConf, ctx: SparkContext = null) {
     }
   }
 
-  def getJavaData: RDD[VariantModel] = getData.map(_._2.toJavaVariant)
+  // For now assume a single dataset when invoking from python.
+  def getJavaData: RDD[VariantModel] = getData.head.map(_.toJavaVariant)
 
   /**
    * Filter datasets according to the specified flags.
