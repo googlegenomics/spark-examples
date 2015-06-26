@@ -39,7 +39,7 @@ def prepare_call_data(py_rdd, py_id_to_index):
 
     # Obtain the callset name from the samples.
     callset_names = (samples_with_variant.
-        map(lambda callset: [c['callSetName'] for c in callset])
+        map(lambda callset: [c['callSetId'] for c in callset])
     )
 
     # Convert all names (strings) to indices (ints).
