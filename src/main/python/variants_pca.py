@@ -161,14 +161,14 @@ def pca(argv):
 
     pca_conf = (sc._jvm.com.google.cloud.genomics.spark.examples.
         PcaConf(args))
-    pca_driver = (sc._jvm.com.google.cloud.genomics.spark.examples.
-        VariantsPcaDriver(pca_conf, jsc))
+    variants_common = (sc._jvm.com.google.cloud.genomics.spark.examples.
+        VariantsCommon(pca_conf, jsc))
 
     # Map of sample ID to an index in the list of all sample IDs.
     # e.g. the list ['NA20818', 'NA20819', 'NA20826'] produces the map
     # {'NA20818': 0, 'NA20819': 1, 'NA20826', 2}
     java_id_to_index = sc._jvm.scala.collection.JavaConversions.mapAsJavaMap(
-        pca_driver.indexes())
+        variants_common.indexes())
     py_id_to_index = {}
     for k in java_id_to_index:
         py_id_to_index[k] = java_id_to_index[k]
@@ -176,7 +176,7 @@ def pca(argv):
     index_to_id = dict((v, k) for (k, v) in py_id_to_index.iteritems())
 
     # Obtain an RDD of all Variants matching PcaConf.
-    scala_rdd = pca_driver.getJavaData()
+    scala_rdd = variants_common.getJavaData()
     java_rdd = scala_rdd.toJavaRDD()
     # Convert it to Python RDD.
     py_rdd = mllib_common._java2py(sc, java_rdd)
