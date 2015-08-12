@@ -12,7 +12,7 @@ scalacOptions += "-target:jvm-1.7"
 
 val sparkVersion = "1.3.1"
 
-val genomicsUtilsVersion = "v1beta2-0.33-SNAPSHOT"
+val genomicsUtilsVersion = "v1beta2-0.32"
   
   
 libraryDependencies ++= Seq(
