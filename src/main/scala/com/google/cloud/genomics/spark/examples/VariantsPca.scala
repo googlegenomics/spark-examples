@@ -62,14 +62,15 @@ object VariantsPcaDriver {
   def getVariantKey(variant: Variant, debug:Boolean = false) = {
     val alternateBases = variant.alternateBases.map(
                altBases => altBases.mkString("")).getOrElse("")
+    val referenceBases = Option(variant.referenceBases).getOrElse("")
     if (debug) {
-      println(s"${variant.contig}: (${variant.start}, ${variant.end}) ref=${variant.referenceBases} alt=${alternateBases}")
+      println(s"${variant.contig}: (${variant.start}, ${variant.end}) ref=${referenceBases} alt=${alternateBases}")
     }
     Hashing.murmur3_128().newHasher()
        .putString(variant.contig, Charsets.UTF_8)
        .putLong(variant.start)
        .putLong(variant.end)
-       .putString(variant.referenceBases, Charsets.UTF_8)
+       .putString(referenceBases, Charsets.UTF_8)
        .putString(
            alternateBases,
            Charsets.UTF_8)
