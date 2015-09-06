@@ -12,7 +12,7 @@ scalacOptions += "-target:jvm-1.7"
 
 val sparkVersion = "1.3.1"
 
-val genomicsUtilsVersion = "v1beta2-0.32"
+val genomicsUtilsVersion = "v1beta2-0.33"
   
   
 libraryDependencies ++= Seq(
@@ -20,7 +20,8 @@ libraryDependencies ++= Seq(
       ExclusionRule(organization = "org.mortbay.jetty", name = "servlet-api"),
       ExclusionRule(organization = "com.google.guava", name = "guava-jdk5"),
       ExclusionRule(organization = "com.fasterxml.jackson.core", name = "jackson-core"),
-      ExclusionRule(organization = "javax", name="javaee-api")),
+      ExclusionRule(organization = "com.sun.mail", name="javax.mail")
+  ),
   "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "provided",
   "org.rogach" %% "scallop" % "0.9.5",

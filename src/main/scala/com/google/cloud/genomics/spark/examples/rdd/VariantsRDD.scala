@@ -39,6 +39,7 @@ import com.google.genomics.v1.StreamVariantsRequest
 import com.google.cloud.genomics.utils.grpc.VariantStreamIterator
 import com.google.protobuf.ListValue
 import com.google.cloud.genomics.utils.ShardUtils.SexChromosomeFilter
+import com.google.protobuf.ByteString
 
 /**
  * A serializable version of the Variant.
@@ -246,7 +247,7 @@ class VariantsRDD(sc: SparkContext,
  * Defines a search range over a contig.
  */
 case class VariantsPartition(
-    override val index: Int, serializedRequest: Array[Byte])
+    override val index: Int, serializedRequest: ByteString)
     extends Partition {
 
   def getVariantsRequest = StreamVariantsRequest.parseFrom(serializedRequest)
@@ -280,7 +281,7 @@ class AllReferencesVariantsPartitioner(numberOfBasesPerShard: Long,
     ShardUtils.getVariantRequests(
         variantSetId, SexChromosomeFilter.EXCLUDE_XY,
         numberOfBasesPerShard, auth).zipWithIndex.map {
-      case(request, index) => VariantsPartition(index, request.toByteArray())
+      case(request, index) => VariantsPartition(index, request.toByteString())
     }.toArray
   }
 }
@@ -292,7 +293,7 @@ class ReferencesVariantsPartitioner(references: String,
     println(s"Variantset: ${variantSetId}; Refs: ${references}")
     ShardUtils.getVariantRequests(
         variantSetId, references, numberOfBasesPerShard).zipWithIndex.map {
-      case(request, index) => VariantsPartition(index, request.toByteArray())
+      case(request, index) => VariantsPartition(index, request.toByteString)
     }.toArray
   }
 }
