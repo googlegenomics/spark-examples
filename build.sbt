@@ -1,6 +1,4 @@
-import AssemblyKeys._
-
-seq(assemblySettings: _*)
+import sbtassembly.AssemblyPlugin.autoImport._
 
 name := "googlegenomics-spark-examples"
 
@@ -12,8 +10,9 @@ scalacOptions += "-target:jvm-1.7"
 
 val sparkVersion = "1.3.1"
 
-val genomicsUtilsVersion = "v1beta2-0.33"
-  
+val genomicsUtilsVersion = "v1beta2-0.34"
+
+ivyScala := ivyScala.value map { _.copy(overrideScalaVersion = true) } 
   
 libraryDependencies ++= Seq(
   "com.google.cloud.genomics" % "google-genomics-utils" % genomicsUtilsVersion excludeAll(
@@ -36,3 +35,11 @@ mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) =>
     case x => old(x)
   }
 }
+
+assemblyShadeRules in assembly := Seq(
+      ShadeRule.rename("io.netty.handler.**" -> "shadeio.io.netty.handler.@1").inAll,
+      ShadeRule.rename("io.netty.channel.**" -> "shadeioi.io.netty.channel.@1").inAll,
+      ShadeRule.rename("io.netty.util.**" -> "shadeio.io.netty.util.@1").inAll,
+      ShadeRule.rename("io.netty.bootstrap.**" -> "shadeio.io.netty.bootstrap.@1").inAll,
+      ShadeRule.rename("com.google.protobuf.**" -> "shade.com.google.protobuf.@1").inAll
+    )
