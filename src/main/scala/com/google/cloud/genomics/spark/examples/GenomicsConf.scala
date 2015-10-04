@@ -18,17 +18,22 @@ package com.google.cloud.genomics.spark.examples
 
 import scala.collection.JavaConversions._
 
+import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
 import org.rogach.scallop.ScallopConf
-import org.apache.spark.SparkConf
-import com.google.cloud.genomics.Client
-import com.google.cloud.genomics.utils.Contig
-import com.google.cloud.genomics.utils.Contig.SexChromosomeFilter
-import com.google.api.services.genomics.Genomics
+
+import com.google.cloud.genomics.spark.examples.rdd.AllReferencesVariantsPartitioner
+import com.google.cloud.genomics.spark.examples.rdd.ReferencesVariantsPartitioner
+import com.google.cloud.genomics.spark.examples.rdd.VariantsPartitioner
+import com.google.cloud.genomics.utils.GenomicsFactory.OfflineAuth
+import com.google.cloud.genomics.utils.ShardUtils.SexChromosomeFilter
 
 class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
+  val DEFAULT_NUMBER_OF_BASES_PER_SHARD = 100000
+  val PLATINUM_GENOMES_BRCA1_REFERENCES = "chr17:41196311:41277499"
+
   val basesPerPartition = opt[Long](default =
-    Some(Contig.DEFAULT_NUMBER_OF_BASES_PER_SHARD),
+    Some(DEFAULT_NUMBER_OF_BASES_PER_SHARD),
       descr = "Partition each reference using a fixed number of bases")
   val clientSecrets = opt[String](default = Some("client_secrets.json"))
   val inputPath = opt[String]()
@@ -37,7 +42,8 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
       "number greater than the number of cores, to achieve maximum " +
       "throughput.")
   val outputPath = opt[String]()
-  val references = opt[List[String]](default=Some(List(Contig.BRCA1)),
+  val references = opt[List[String]](default=
+    Some(List(PLATINUM_GENOMES_BRCA1_REFERENCES)),
       descr = "Comma separated tuples of reference:start:end,... " +
       "one list of tuples should be specified per variantset " +
       "in the corresponding order.")
@@ -56,10 +62,8 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
     new SparkContext(conf)
   }
 
-  def getReferences = {
-    this.references() map {
-      Contig.parseContigsFromCommandLine(_)
-    }
+  def getPartitioner(references: String) = {
+    new ReferencesVariantsPartitioner(references, this.basesPerPartition())
   }
 }
 
@@ -80,19 +84,13 @@ class PcaConf(arguments: Seq[String]) extends GenomicsConf(arguments) {
    * corresponding  --references or all references
    * except X and Y if --all-references is specified.
    */
-  def getReferences(client: Genomics, variantSetIds: List[String]) = {
-    println(s"Running PCA on ${variantSetIds.length} datasets.")
+  def getPartitioner(auth: OfflineAuth, variantSetId: String,
+      variantSetIndex: Int = 0) = {
     if (this.allReferences()) {
-      variantSetIds.map { variantSetId =>
-        println(s"Variantset: ${variantSetId}; All refs, exclude XY")
-        Contig.getContigsInVariantSet(client, variantSetId, PcaConf.ExcludeXY)
-      }.flatten
+      new AllReferencesVariantsPartitioner(this.basesPerPartition(), auth)
     } else {
-      variantSetIds.zip(this.references()).map {
-        case (variantSetId, references)  =>
-          println(s"Variantset: ${variantSetId}; Refs: ${references}")
-          Contig.parseContigsFromCommandLine(references)
-      }.flatten
+      new ReferencesVariantsPartitioner(this.references().get(variantSetIndex),
+          this.basesPerPartition())
     }
   }
 }

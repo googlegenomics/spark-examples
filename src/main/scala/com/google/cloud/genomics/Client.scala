@@ -35,7 +35,7 @@ object Authentication {
     val verificationCodeReceiver = Suppliers.ofInstance(new GooglePromptReceiver())
     GenomicsFactory.builder(applicationName)
       .setVerificationCodeReceiver(verificationCodeReceiver).build()
-      .getOfflineAuth(null, clientSecretsFile);
+      .getOfflineAuthFromClientSecretsFile(clientSecretsFile)
   }
 }
 
