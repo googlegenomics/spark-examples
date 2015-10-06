@@ -60,7 +60,7 @@ case class Variant(contig: String, id: String, names: Option[List[String]],
 
   def toListValue(values: List[String]) = {
     val listValue = ListValue.newBuilder()
-    listValue.getValuesList.addAll(
+    listValue.addAllValues(
       values.map(Value.newBuilder().setStringValue(_).build))
     listValue.build
   }
@@ -75,12 +75,12 @@ case class Variant(contig: String, id: String, names: Option[List[String]],
     .setEnd(this.end)
     .setReferenceBases(this.referenceBases)
 
-    variant.getInfo.putAll(this.info.mapValues(toListValue))
+    variant.putAllInfo(this.info.mapValues(toListValue))
 
     if (this.alternateBases isDefined)
-      variant.getAlternateBasesList.addAll(this.alternateBases.get)
+      variant.addAllAlternateBases(this.alternateBases.get)
     if (this.names isDefined)
-      variant.getNamesList.addAll(this.names.get)
+      variant.addAllNames(this.names.get)
     if (this.calls isDefined) {
       val calls = this.calls.get.map
       { c =>
@@ -88,15 +88,15 @@ case class Variant(contig: String, id: String, names: Option[List[String]],
         .setCallSetId(c.callsetId)
         .setCallSetName(c.callsetName)
 
-        call.getGenotypeList.addAll(c.genotype)
+        call.addAllGenotype(c.genotype)
         call.setPhaseset(c.phaseset)
 
-        call.getInfo.putAll(c.info.mapValues(toListValue))
+        call.putAllInfo(c.info.mapValues(toListValue))
         if (c.genotypeLikelihood isDefined)
-          call.getGenotypeLikelihoodList.addAll(c.genotypeLikelihood.get)
+          call.addAllGenotypeLikelihood(c.genotypeLikelihood.get)
         call.build
       }
-      variant.getCallsList.addAll(calls)
+      variant.addAllCalls(calls)
     }
     variant.build
   }
@@ -212,7 +212,6 @@ class VariantsRDD(sc: SparkContext,
     Iterator[(VariantKey, Variant)] = {
     val client = Client(auth)
     val partition = part.asInstanceOf[VariantsPartition]
-    println(partition)
     val request = partition.getVariantsRequest
     val responses = new VariantStreamIterator(
         request, auth, ShardBoundary.Requirement.OVERLAPS, null);

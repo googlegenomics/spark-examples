@@ -50,7 +50,7 @@ class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
   val sparkMaster = opt[String](
       descr = "A spark master URL. Leave empty if using spark-submit.")
   val variantSetId = opt[List[String]](
-    default = Some(List(GoogleGenomicsPublicData.Thousand_Genomes_Phase_1)),
+    default = Some(List(GoogleGenomicsPublicData.Platinum_Genomes)),
       descr = "List of VariantSetId to use in the analysis.")
 
   def newSparkContext(className: String) = {
