@@ -17,21 +17,29 @@ package com.google.cloud.genomics.spark.examples.rdd
 
 import java.lang.{Double => JDouble}
 import java.util.{List => JList}
+import com.google.protobuf.ListValue
+import com.google.protobuf.Value
 import scala.collection.JavaConversions._
 import org.apache.spark.Partition
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
-import com.google.api.services.genomics.model.{Call => CallModel}
 import com.google.api.services.genomics.model.SearchVariantsRequest
-import com.google.api.services.genomics.model.{Variant => VariantModel}
+import com.google.genomics.v1.{Variant => VariantModel}
+import com.google.genomics.v1.{VariantCall => CallModel}
 import com.google.cloud.genomics.Client
 import com.google.cloud.genomics.utils.Paginator
-import com.google.cloud.genomics.utils.Paginator.ShardBoundary
 import org.apache.spark.Accumulator
 import com.google.cloud.genomics.utils.GenomicsFactory.OfflineAuth
 import com.google.cloud.genomics.utils.Contig
+import com.google.cloud.genomics.utils.ShardBoundary
+import com.google.cloud.genomics.utils.ShardUtils
+import com.google.genomics.v1.StreamVariantsRequest
+import com.google.cloud.genomics.utils.grpc.VariantStreamIterator
+import com.google.protobuf.ListValue
+import com.google.cloud.genomics.utils.ShardUtils.SexChromosomeFilter
+import com.google.protobuf.ByteString
 
 /**
  * A serializable version of the Variant.
@@ -42,44 +50,55 @@ import com.google.cloud.genomics.utils.Contig
 
 case class Call(callsetId: String, callsetName: String, genotype: List[Integer],
     genotypeLikelihood: Option[List[JDouble]], phaseset: String,
-    info: Map[String, JList[String]]) extends Serializable
+    info: Map[String, List[String]]) extends Serializable
 
 
 case class Variant(contig: String, id: String, names: Option[List[String]],
     start: Long, end: Long, referenceBases: String,
-    alternateBases: Option[List[String]], info: Map[String, JList[String]],
+    alternateBases: Option[List[String]], info: Map[String, List[String]],
     created: Long, variantSetId: String, calls: Option[Seq[Call]]) extends Serializable {
 
+  def toListValue(values: List[String]) = {
+    val listValue = ListValue.newBuilder()
+    listValue.addAllValues(
+      values.map(Value.newBuilder().setStringValue(_).build))
+    listValue.build
+  }
+
   def toJavaVariant() = {
-    val variant = new VariantModel()
+    val variant = VariantModel.newBuilder()
     .setReferenceName(this.contig)
     .setCreated(this.created)
     .setVariantSetId(this.variantSetId)
     .setId(this.id)
-    .setInfo(this.info)
     .setStart(this.start)
     .setEnd(this.end)
     .setReferenceBases(this.referenceBases)
 
-    if (this.alternateBases isDefined) variant.setAlternateBases(this.alternateBases.get)
-    if (this.names isDefined) variant.setNames(this.names.get)
+    variant.putAllInfo(this.info.mapValues(toListValue))
+
+    if (this.alternateBases isDefined)
+      variant.addAllAlternateBases(this.alternateBases.get)
+    if (this.names isDefined)
+      variant.addAllNames(this.names.get)
     if (this.calls isDefined) {
       val calls = this.calls.get.map
       { c =>
-        val call = new CallModel()
+        val call = CallModel.newBuilder()
         .setCallSetId(c.callsetId)
         .setCallSetName(c.callsetName)
-        .setGenotype(c.genotype)
-        .setInfo(c.info)
-        .setPhaseset(c.phaseset)
-        if (c.genotypeLikelihood isDefined) call.setGenotypeLikelihood(c.genotypeLikelihood.get)
 
-        call
+        call.addAllGenotype(c.genotype)
+        call.setPhaseset(c.phaseset)
+
+        call.putAllInfo(c.info.mapValues(toListValue))
+        if (c.genotypeLikelihood isDefined)
+          call.addAllGenotypeLikelihood(c.genotypeLikelihood.get)
+        call.build
       }
-      variant.setCalls(calls)
+      variant.addAllCalls(calls)
     }
-
-    variant
+    variant.build
   }
 }
 
@@ -95,23 +114,23 @@ object VariantsBuilder {
     }
   }
 
+  def toStringList(values: ListValue) =
+    values.getValuesList.map(_.getStringValue()).toList
+
   def build(r: VariantModel) = {
     val variantKey = VariantKey(r.getReferenceName, r.getStart)
-    val calls = if (r.containsKey("calls"))
-        Some(r.getCalls().map(
+    val calls = if (r.getCallsCount > 0)
+        Some(r.getCallsList.map(
             c => Call(
                 c.getCallSetId,
                 c.getCallSetName,
-                c.getGenotype.toList,
-                if (c.containsKey("genotypeLikelihood"))
-                  Some(c.getGenotypeLikelihood.toList)
+                c.getGenotypeList.toList,
+                if (c.getGenotypeLikelihoodCount > 0)
+                  Some(c.getGenotypeLikelihoodList.toList)
                 else
                   None,
                 c.getPhaseset,
-                if (c.containsKey("info"))
-                  c.getInfo.toMap
-                else
-                  Map[String,java.util.List[String]]())))
+                c.getInfo.mapValues(toStringList).toMap)))
       else
         None
 
@@ -123,25 +142,19 @@ object VariantsBuilder {
       val variant = Variant(
           referenceName.get,
           r.getId,
-          if (r.containsKey("names"))
-            Some(r.getNames.toList)
+          if (r.getNamesCount() > 0)
+            Some(r.getNamesList.toList)
           else
             None,
           r.getStart,
           r.getEnd,
           r.getReferenceBases,
-          if (r.containsKey("alternateBases"))
-            Some(r.getAlternateBases.toList)
+          if (r.getAlternateBasesCount() > 0)
+            Some(r.getAlternateBasesList.toList)
           else
             None,
-          if (r.containsKey("info"))
-            r.getInfo.toMap
-          else
-            Map[String,java.util.List[String]](),
-          if (r.containsKey("created"))
-            r.getCreated
-          else
-            0L,
+          r.getInfo.mapValues(toStringList).toMap,
+          r.getCreated,
           r.getVariantSetId,
           calls)
       Some((variantKey, variant))
@@ -198,13 +211,16 @@ class VariantsRDD(sc: SparkContext,
   override def compute(part: Partition, ctx: TaskContext):
     Iterator[(VariantKey, Variant)] = {
     val client = Client(auth)
-    val reads = Paginator.Variants.create(client.genomics, ShardBoundary.STRICT)
     val partition = part.asInstanceOf[VariantsPartition]
-    val req = partition.getVariantsRequest
-    val iterator = reads.search(req).iterator().map(variant => {
-      stats map { _.variantsAccum += 1 }
-      VariantsBuilder.build(variant)
-    }).filter(_.isDefined).map(_.get)
+    val request = partition.getVariantsRequest
+    val responses = new VariantStreamIterator(
+        request, auth, ShardBoundary.Requirement.OVERLAPS, null);
+    val iterator = responses.flatMap(variantResponse => {
+      variantResponse.getVariantsList().map(variant => {
+          stats map { _.variantsAccum += 1 }
+          VariantsBuilder.build(variant)
+        })
+      }).filter(_.isDefined).map(_.get)
     stats map { stat =>
         stat.partitionsAccum += 1
         stat.referenceBasesAccum += (partition.range)
@@ -229,14 +245,16 @@ class VariantsRDD(sc: SparkContext,
 /**
  * Defines a search range over a contig.
  */
-case class VariantsPartition(override val index: Int,
-                          val variantSetId: String,
-                          val contig: Contig) extends Partition {
-  def getVariantsRequest = {
-    contig.getVariantsRequest(variantSetId)
-  }
+case class VariantsPartition(
+    override val index: Int, serializedRequest: ByteString)
+    extends Partition {
 
-  def range = contig.end - contig.start
+  def getVariantsRequest = StreamVariantsRequest.parseFrom(serializedRequest)
+
+  def range = {
+    val request = getVariantsRequest
+    request.getEnd() - request.getStart()
+  }
 }
 
 
@@ -245,18 +263,36 @@ case class VariantsPartition(override val index: Int,
  */
 case class VariantKey(contig: String, position: Long)
 
+trait VariantsPartitioner extends Serializable {
+  def getPartitions(variantSetId: String): Array[Partition]
+}
+
 
 /**
  * Describes partitions for a set of contigs and their ranges.
  */
-class VariantsPartitioner(variants: Seq[Contig],
-    numberOfBasesPerShard: Long) extends Serializable {
+class AllReferencesVariantsPartitioner(numberOfBasesPerShard: Long,
+    auth: OfflineAuth) extends VariantsPartitioner {
 
   // Generates all partitions for all mapped variants in the contig space.
   def getPartitions(variantSetId: String): Array[Partition] = {
-    variants.map { _.getShards(numberOfBasesPerShard) }
-      .flatten.view.zipWithIndex.map { shard =>
-        VariantsPartition(shard._2, variantSetId, shard._1)
-      }.toArray
+    println(s"Variantset: ${variantSetId}; All refs, exclude XY")
+    ShardUtils.getVariantRequests(
+        variantSetId, SexChromosomeFilter.EXCLUDE_XY,
+        numberOfBasesPerShard, auth).zipWithIndex.map {
+      case(request, index) => VariantsPartition(index, request.toByteString())
+    }.toArray
+  }
+}
+
+class ReferencesVariantsPartitioner(references: String,
+    numberOfBasesPerShard: Long) extends VariantsPartitioner {
+  // Generates all partitions for all mapped variants in the contig space.
+  def getPartitions(variantSetId: String): Array[Partition] = {
+    println(s"Variantset: ${variantSetId}; Refs: ${references}")
+    ShardUtils.getVariantRequests(
+        variantSetId, references, numberOfBasesPerShard).zipWithIndex.map {
+      case(request, index) => VariantsPartition(index, request.toByteString)
+    }.toArray
   }
 }
