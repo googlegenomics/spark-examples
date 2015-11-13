@@ -10,10 +10,10 @@ scalacOptions += "-target:jvm-1.7"
 
 val sparkVersion = "1.3.1"
 
-val genomicsUtilsVersion = "v1beta2-0.34"
+val genomicsUtilsVersion = "v1beta2-0.37"
 
-ivyScala := ivyScala.value map { _.copy(overrideScalaVersion = true) } 
-  
+ivyScala := ivyScala.value map { _.copy(overrideScalaVersion = true) }
+
 libraryDependencies ++= Seq(
   "com.google.cloud.genomics" % "google-genomics-utils" % genomicsUtilsVersion excludeAll(
       ExclusionRule(organization = "org.mortbay.jetty", name = "servlet-api"),

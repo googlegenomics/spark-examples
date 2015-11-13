@@ -213,8 +213,8 @@ class VariantsRDD(sc: SparkContext,
     val client = Client(auth)
     val partition = part.asInstanceOf[VariantsPartition]
     val request = partition.getVariantsRequest
-    val responses = new VariantStreamIterator(
-        request, auth, ShardBoundary.Requirement.OVERLAPS, null);
+    val responses = VariantStreamIterator.enforceShardBoundary(
+        auth, request, ShardBoundary.Requirement.OVERLAPS, null);
     val iterator = responses.flatMap(variantResponse => {
       variantResponse.getVariantsList().map(variant => {
           stats map { _.variantsAccum += 1 }
