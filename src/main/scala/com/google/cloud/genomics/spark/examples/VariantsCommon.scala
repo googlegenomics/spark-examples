@@ -18,7 +18,7 @@ package com.google.cloud.genomics.spark.examples
 import scala.collection.JavaConversions._
 import org.apache.spark.SparkContext
 import com.google.api.services.genomics.model.SearchCallSetsRequest
-import com.google.api.services.genomics.model.{Variant => VariantModel}
+import com.google.genomics.v1.{Variant => VariantModel}
 import com.google.cloud.genomics.Authentication
 import com.google.cloud.genomics.Client
 import com.google.cloud.genomics.spark.examples.rdd.Variant
@@ -53,13 +53,13 @@ class VariantsCommon(conf: PcaConf, sc: SparkContext) {
     if (conf.inputPath.isDefined) {
       List(sc.objectFile[(VariantKey, Variant)](conf.inputPath()).map(_._2))
     } else {
-      val client = Client(auth).genomics
-      val contigs = conf.getReferences(client, conf.variantSetId()).toArray
       val variantSets = conf.variantSetId()
-      conf.variantSetId().map { variantSetId =>
+      println(s"Running PCA on ${variantSets.length} datasets.")
+      conf.variantSetId().zipWithIndex.map {
+        case (variantSetId, variantSetIndex) =>
         new VariantsRDD(sc, this.getClass.getName, auth,
           variantSetId,
-          new VariantsPartitioner(contigs, conf.basesPerPartition()),
+          conf.getPartitioner(auth, variantSetId, variantSetIndex),
           stats=ioStats).map(_._2)
       }
     }
