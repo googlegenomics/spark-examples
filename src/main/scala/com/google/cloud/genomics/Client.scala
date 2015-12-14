@@ -18,32 +18,39 @@ package com.google.cloud.genomics
 import java.io.File
 import java.io.FileReader
 import java.io.StringReader
+import java.util.Scanner
 import scala.util.{Try, Success, Failure}
-import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets
-import com.google.api.client.googleapis.auth.oauth2.GoogleCredential
-import com.google.api.client.googleapis.extensions.java6.auth.oauth2.GooglePromptReceiver
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
-import com.google.api.client.json.jackson2.JacksonFactory
 import com.google.api.services.genomics.Genomics
+import com.google.cloud.genomics.utils.CredentialFactory
 import com.google.cloud.genomics.utils.GenomicsFactory
-import com.google.common.base.Suppliers
-import com.google.cloud.genomics.utils.GenomicsFactory.OfflineAuth
+import com.google.cloud.genomics.utils.OfflineAuth
 
 object Authentication {
-  def getAccessToken(clientSecretsFile: String,
+  def getAccessToken(clientSecretsFile: Option[String],
       applicationName: String = "spark-examples") = {
-    val verificationCodeReceiver = Suppliers.ofInstance(new GooglePromptReceiver())
-    GenomicsFactory.builder(applicationName)
-      .setVerificationCodeReceiver(verificationCodeReceiver).build()
-      .getOfflineAuthFromClientSecretsFile(clientSecretsFile)
+    if(clientSecretsFile.isDefined) {
+      System.out.println("\nThis pipeline will make your user credential available to all"
+        + " Spark worker processes.  Your credentials may be visible to others with access to the"
+        + " machines on which this pipeline is running.");
+      System.out.println("Do you want to continue (Y/n)?");
+      val kbd = new Scanner(System.in)
+      val decision = kbd.nextLine()
+      decision match {
+        case "yes" | "Yes" | "YES" | "y" | "Y" => "proceed"
+        case _ =>  System.exit(0)
+      }
+      new OfflineAuth(CredentialFactory.getCredentialFromClientSecrets(clientSecretsFile.get, applicationName))
+    } else {
+      new OfflineAuth()
+    }
   }
 }
 
 object Client {
 
   def apply(auth: OfflineAuth, applicationName: String = "spark-examples"): Client = {
-    val factory = auth.getDefaultFactory()
-    new Client(auth.getGenomics(factory), factory)
+    val factory = GenomicsFactory.builder().build()
+    new Client(factory.fromOfflineAuth(auth), factory)
   }
 }
 
