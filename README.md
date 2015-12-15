@@ -25,6 +25,7 @@ From the `spark-examples` directory run `sbt run`
 Use the following flags to match your runtime configuration:
 
 ```
+$ export SBT_OPTS='-Xbootclasspath/p:/YOUR/PATH/TO/alpn-boot-YOUR-VERSION.jar'
 $ sbt "run --help"
   -o, --output-path  <arg>
   -s, --spark-master  <arg>      A spark master URL. Leave empty if using spark-submit.
@@ -111,14 +112,7 @@ NA20828		-0.03412964005321165	-0.025991697661590686
 NA21313		-0.03401702847363714	-0.024555217139987182
 ```
 
-To save the PCA analysis output to a file, specify the `--output-path` flag.
-
-To specify a different variantset or run the analysis on multiple references use the `--variant-set-id` and  `--references` flags, the `--references` flag understand the following format, `<reference>:<start>:<end>,...`.
-
-To retrieve the results form the output directory use `gsutil`:
-```
-gsutil cat gs://<bucket-name>/<output-path>-pca.tsv/part* > pca-results.tsv
-```
+This pipeline is described in greater detail on [How do I compute principal coordinate analysis with Google Genomics?](http://googlegenomics.readthedocs.org/en/latest/use_cases/compute_principal_coordinate_analysis/index.html)
 
 ### Debugging 
 
