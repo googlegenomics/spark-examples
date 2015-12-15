@@ -80,7 +80,7 @@ object SearchReadsExample1 {
     val sc = conf.newSparkContext(applicationName)
     Logger.getLogger("org").setLevel(Level.WARN)
     val region = Map(("11" -> (Examples.Cilantro - 1000, Examples.Cilantro + 1000)))
-    val accessToken = Authentication.getAccessToken(conf.clientSecrets())
+    val accessToken = Authentication.getAccessToken(conf.clientSecrets.get)
     val data = new ReadsRDD(sc, applicationName, accessToken,
       List(Examples.Google_Example_Readset),
       new ReadsPartitioner(region, FixedSplits(1)))
@@ -121,7 +121,7 @@ object SearchReadsExample2 {
     val chr = "21"
     val len = Examples.HumanChromosomes(chr)
     val region = Map((chr -> (1L, len)))
-    val accessToken = Authentication.getAccessToken(conf.clientSecrets())
+    val accessToken = Authentication.getAccessToken(conf.clientSecrets.get)
     val data = new ReadsRDD(sc, applicationName, accessToken,
       List(Examples.Google_Example_Readset),
       new ReadsPartitioner(region,
@@ -145,7 +145,7 @@ object SearchReadsExample3 {
     val sc = conf.newSparkContext(applicationName)
     val chr = "21"
     val region = Map((chr -> (1L, Examples.HumanChromosomes(chr))))
-    val accessToken = Authentication.getAccessToken(conf.clientSecrets())
+    val accessToken = Authentication.getAccessToken(conf.clientSecrets.get)
     val data = new ReadsRDD(sc, applicationName, accessToken,
       List(Examples.Google_Example_Readset),
       new ReadsPartitioner(region,
@@ -176,7 +176,7 @@ object SearchReadsExample4 {
     val conf = new GenomicsConf(args)
     val outPath = conf.outputPath.orElse(Option("."))()
     val applicationName = this.getClass.getName
-    val accessToken = Authentication.getAccessToken(conf.clientSecrets())
+    val accessToken = Authentication.getAccessToken(conf.clientSecrets.get)
     val sc = conf.newSparkContext(applicationName)
     val chr = "1"
     val region = Map((chr -> (100000000L, 101000000L)))

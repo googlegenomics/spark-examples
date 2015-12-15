@@ -32,7 +32,7 @@ import org.apache.spark.rdd.RDD
 
 class VariantsCommon(conf: PcaConf, sc: SparkContext) {
 
-  private val auth = Authentication.getAccessToken(conf.clientSecrets())
+  private val auth = Authentication.getAccessToken(conf.clientSecrets.get)
   private val ioStats = createIoStats
 
   val (indexes, names) = {

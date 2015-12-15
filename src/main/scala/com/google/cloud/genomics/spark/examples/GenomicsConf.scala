@@ -25,17 +25,19 @@ import org.rogach.scallop.ScallopConf
 import com.google.cloud.genomics.spark.examples.rdd.AllReferencesVariantsPartitioner
 import com.google.cloud.genomics.spark.examples.rdd.ReferencesVariantsPartitioner
 import com.google.cloud.genomics.spark.examples.rdd.VariantsPartitioner
-import com.google.cloud.genomics.utils.GenomicsFactory.OfflineAuth
+import com.google.cloud.genomics.utils.OfflineAuth
 import com.google.cloud.genomics.utils.ShardUtils.SexChromosomeFilter
 
 class GenomicsConf(arguments: Seq[String]) extends ScallopConf(arguments) {
-  val DEFAULT_NUMBER_OF_BASES_PER_SHARD = 100000
+  val DEFAULT_NUMBER_OF_BASES_PER_SHARD = 1000000
   val PLATINUM_GENOMES_BRCA1_REFERENCES = "chr17:41196311:41277499"
 
   val basesPerPartition = opt[Long](default =
     Some(DEFAULT_NUMBER_OF_BASES_PER_SHARD),
       descr = "Partition each reference using a fixed number of bases")
-  val clientSecrets = opt[String](default = Some("client_secrets.json"))
+  val clientSecrets = opt[String](
+    descr = "Provide the file path to client_secrets.json to use a user "
+    + "credential instead of the Application Default Credential.")
   val inputPath = opt[String]()
   val numReducePartitions = opt[Int](default = Some(10),
       descr = "Set it to a " +

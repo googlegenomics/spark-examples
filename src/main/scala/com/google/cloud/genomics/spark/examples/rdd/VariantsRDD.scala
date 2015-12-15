@@ -17,29 +17,30 @@ package com.google.cloud.genomics.spark.examples.rdd
 
 import java.lang.{Double => JDouble}
 import java.util.{List => JList}
+
+import com.google.api.services.genomics.model.SearchVariantsRequest
+import com.google.cloud.genomics.Client
+import com.google.cloud.genomics.utils.Contig
+import com.google.cloud.genomics.utils.OfflineAuth
+import com.google.cloud.genomics.utils.Paginator
+import com.google.cloud.genomics.utils.ShardBoundary
+import com.google.cloud.genomics.utils.ShardUtils
+import com.google.cloud.genomics.utils.ShardUtils.SexChromosomeFilter
+import com.google.cloud.genomics.utils.grpc.VariantStreamIterator
+import com.google.genomics.v1.StreamVariantsRequest
+import com.google.genomics.v1.{Variant => VariantModel}
+import com.google.genomics.v1.{VariantCall => CallModel}
+import com.google.protobuf.ByteString
 import com.google.protobuf.ListValue
 import com.google.protobuf.Value
-import scala.collection.JavaConversions._
+
+import org.apache.spark.Accumulator
 import org.apache.spark.Partition
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
-import com.google.api.services.genomics.model.SearchVariantsRequest
-import com.google.genomics.v1.{Variant => VariantModel}
-import com.google.genomics.v1.{VariantCall => CallModel}
-import com.google.cloud.genomics.Client
-import com.google.cloud.genomics.utils.Paginator
-import org.apache.spark.Accumulator
-import com.google.cloud.genomics.utils.GenomicsFactory.OfflineAuth
-import com.google.cloud.genomics.utils.Contig
-import com.google.cloud.genomics.utils.ShardBoundary
-import com.google.cloud.genomics.utils.ShardUtils
-import com.google.genomics.v1.StreamVariantsRequest
-import com.google.cloud.genomics.utils.grpc.VariantStreamIterator
-import com.google.protobuf.ListValue
-import com.google.cloud.genomics.utils.ShardUtils.SexChromosomeFilter
-import com.google.protobuf.ByteString
+import scala.collection.JavaConversions._
 
 /**
  * A serializable version of the Variant.

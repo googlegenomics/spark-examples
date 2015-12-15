@@ -45,7 +45,7 @@ object SearchVariantsExampleKlotho {
     val sc = conf.newSparkContext(applicationName)
     Logger.getLogger("org").setLevel(Level.WARN)
     val references = "chr13:33628137:33628138"
-    val accessToken = Authentication.getAccessToken(conf.clientSecrets())
+    val accessToken = Authentication.getAccessToken(conf.clientSecrets.get)
     val data = new VariantsRDD(sc,
       applicationName,
       accessToken,
@@ -93,7 +93,7 @@ object SearchVariantsExampleBRCA1 {
     val sc = conf.newSparkContext(applicationName)
     Logger.getLogger("org").setLevel(Level.WARN)
     val brca1 = "chr17:41196311:41277499"
-    val accessToken = Authentication.getAccessToken(conf.clientSecrets())
+    val accessToken = Authentication.getAccessToken(conf.clientSecrets.get)
     val data = new VariantsRDD(sc,
         this.getClass.getName,
         accessToken,

@@ -11,11 +11,12 @@ The projects in this repository demonstrate working with genomic data accessible
 Getting Started
 ---------------
 
- 1. Follow the [sign up instructions](https://cloud.google.com/genomics/install-genomics-tools#authenticate) and download the `client_secrets.json` file. This file can be copied to the _spark-examples_ directory.
+ 1. Download and install [Apache Spark](https://spark.apache.org/downloads.html).
 
- 2. Download and install [Apache Spark](https://spark.apache.org/downloads.html).
+ 2. If needed, install [SBT](http://www.scala-sbt.org/release/docs/Getting-Started/Setup.html)
 
- 3. If needed, install [SBT](http://www.scala-sbt.org/release/docs/Getting-Started/Setup.html)
+ 3. This project now includes code for calling the Genomics API using <a href="http://www.grpc.io">gRPC</a>.  To use gRPC, you'll need a version of ALPN that matches your JRE version. See the
+<a href="http://www.eclipse.org/jetty/documentation/9.2.10.v20150310/alpn-chapter.html">ALPN documentation</a> for a table of which ALPN JAR to use.
 
 Local Run
 ---------
@@ -24,8 +25,8 @@ From the `spark-examples` directory run `sbt run`
 Use the following flags to match your runtime configuration:
 
 ```
+$ export SBT_OPTS='-Xbootclasspath/p:/YOUR/PATH/TO/alpn-boot-YOUR-VERSION.jar'
 $ sbt "run --help"
-  -c, --client-secrets  <arg>    (default = client_secrets.json)
   -o, --output-path  <arg>
   -s, --spark-master  <arg>      A spark master URL. Leave empty if using spark-submit.
   ...
@@ -35,9 +36,8 @@ $ sbt "run --help"
 For example: 
 
 ```
-$ sbt "run --client-secrets ../client_secrets.json --spark-master local[4]"
+$ sbt "run --spark-master local[4]"
 ```
-
 
 A menu should appear asking you to pick the sample to run:
 ```
@@ -64,34 +64,28 @@ export SBT_OPTS='-XX:MaxPermSize=256m'
 Run on Google Compute Engine
 -----------------------------
 
-If you have not done so already, follow the [instructions](https://cloud.google.com/hadoop/) to setup the Google Cloud SDK and bdutil. At the end of the process you should have launched a small cluster and logged into it using `gcloud compute`.
-
-(1) Use [bdutil](https://cloud.google.com/hadoop/bdutil) to deploy the cluster with Spark enabled.  **bdutil version 1.2.1 or higher is required. (see the setup instructions [here](http://googlegenomics.readthedocs.org/en/latest/use_cases/compute_principal_coordinate_analysis/index.html#id4)).**
+(1) Build the assembly.
 ```
-./bdutil -e extensions/spark/spark_env.sh deploy
+sbt assembly
 ```
-(2) Copy your ``client_secrets.json`` to the master.
+(2) Deploy your Spark cluster using [Google Cloud Dataproc](https://cloud.google.com/dataproc/).
 ```
-gcloud compute copy-files client_secrets.json hadoop-m:~/
+gcloud beta dataproc clusters create example-cluster --scopes cloud-platform
 ```
 (3) Copy the assembly jar to the master node.
 ```
 gcloud compute copy-files \
-  target/scala-2.10/googlegenomics-spark-examples-assembly-1.0.jar  hadoop-m:~/
+  target/scala-2.10/googlegenomics-spark-examples-assembly-1.0.jar  example-cluster-m:~/
 ```
 (4) ssh to the master.
 ```
-gcloud compute ssh hadoop-m
+gcloud compute ssh example-cluster-m
 ```
 (5) Run one of the examples.
 ```
 spark-submit --class com.google.cloud.genomics.spark.examples.SearchReadsExample1 \
-  --master spark://hadoop-m:7077 googlegenomics-spark-examples-assembly-1.0.jar \
-  --client-secrets client_secrets.json
+  googlegenomics-spark-examples-assembly-1.0.jar
 ```
-
-When prompted copy the authentication URL to a browser, authorize the application and copy 
-the authorization code. This step will copy the access token to all the workers.
 
 ### Running PCA variant analysis on GCE
 To run the [variant PCA analysis](https://github.com/googlegenomics/spark-examples/blob/master/src/main/scala/com/google/cloud/genomics/spark/examples/VariantsPca.scala) on GCE  make sure you have followed all the steps on the previous section and that you are able to run at least one of the examples.
@@ -99,8 +93,7 @@ To run the [variant PCA analysis](https://github.com/googlegenomics/spark-exampl
 Run the example PCA analysis for BRCA1 on the [1000 Genomes Project dataset](https://cloud.google.com/genomics/data/1000-genomes).
 ```
 spark-submit --class com.google.cloud.genomics.spark.examples.VariantsPcaDriver \
-  --master spark://hadoop-m:7077 googlegenomics-spark-examples-assembly-1.0.jar \
-  --client-secrets client_secrets.json
+  googlegenomics-spark-examples-assembly-1.0.jar
 ```
 
 The analysis will output the two principal components for each sample to the console. Here is an example of the last few lines.
@@ -119,62 +112,8 @@ NA20828		-0.03412964005321165	-0.025991697661590686
 NA21313		-0.03401702847363714	-0.024555217139987182
 ```
 
-To save the PCA analysis output to a file, specify the `--output-path` flag.
-
-To specify a different variantset or run the analysis on multiple references use the `--variant-set-id` and  `--references` flags, the `--references` flag understand the following format, `<reference>:<start>:<end>,...`.
-
-To run a genome wide analysis on 1K genomes on a reasonable time, make sure you are running on at least 40 cores (`10 n1-standard-4 machines + 1 master`), the following command will run in approximatey 2 hours:
-
-```
-spark-submit --class com.google.cloud.genomics.spark.examples.VariantsPcaDriver \
-  --master spark://hadoop-m:7077 \
-  --conf spark.shuffle.spill=true \
-  googlegenomics-spark-examples-assembly-1.0.jar \
-  --client-secrets client_secrets.json \
-  --bases-per-partition 1000000 \
-  --num-reduce-partitions 500 \
-  --all-references \
-  --output-path 1000genomes
-```
-
-You can track the progress of the job in the Spark UI console (see the following section to make sure you can connect to the UI using your browser) .
-
-To retrieve the results form the output directory use `gsutil`:
-
-```
-gsutil cat gs://<bucket-name>/<output-path>-pca.tsv/part* > pca-results.tsv
-```
+This pipeline is described in greater detail on [How do I compute principal coordinate analysis with Google Genomics?](http://googlegenomics.readthedocs.org/en/latest/use_cases/compute_principal_coordinate_analysis/index.html)
 
 ### Debugging 
 
-To debug the jobs from the Spark web UI, either setup a SOCKS5 proxy (recommended)
-or open the web UI ports on your instances.
-
-To use your SOCKS5 proxy with port 12345 on Firefox:
-
-```
-bdutil socksproxy 12345
-Go to Edit -> Preferences -> Advanced -> Network -> Settings
-Enable "Manual proxy configuration" with a SOCKS host "localhost" on port 12345
-Force the DNS resolution to occur on the remote proxy host rather than locally.
-Go to "about:config" in the URL bar
-Search for "socks" to toggle "network.proxy.socks_remote_dns" to "true".
-Visit the web UIs exported by your cluster!
-http://hadoop-m:8080 for Spark
-```
-
-To open the web UI ports.
-
-```
-gcloud compute firewall-rules create allow-spark-console-8080 \
-  --target-tag spark-console \
-  --description "Incoming 8080-8081 allowed." --allow tcp:8080-8081
-gcloud compute firewall-rules create allow-spark-console-4040 \
-  --target-tag spark-console \
-  --description "Incoming 4040 allowed." --allow tcp:4040
-```
-From the [developers console](https://console.developers.google.com/project),
-add the `spark-console` tag to the master and worker instances or follow the instructions
-[here](https://cloud.google.com/compute/docs/instances#tags) to do it from the command line.
-
-Then point the browser to `http://<master-node-public-ip>:8080`
+For more information, see https://cloud.google.com/dataproc/faq

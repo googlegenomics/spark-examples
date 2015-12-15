@@ -16,18 +16,20 @@ limitations under the License.
 package com.google.cloud.genomics.spark.examples.rdd
 
 import java.util.{List => JList}
-import scala.collection.JavaConversions._
-import org.apache.spark.Partition
-import org.apache.spark.SparkContext
-import org.apache.spark.TaskContext
-import org.apache.spark.rdd.RDD
+
+import com.google.api.services.genomics.model.CigarUnit
 import com.google.api.services.genomics.model.{Read => ReadModel}
 import com.google.api.services.genomics.model.SearchReadsRequest
 import com.google.cloud.genomics.Client
 import com.google.cloud.genomics.utils.Paginator
 import com.google.cloud.genomics.utils.ShardBoundary
-import com.google.api.services.genomics.model.CigarUnit
-import com.google.cloud.genomics.utils.GenomicsFactory.OfflineAuth
+import com.google.cloud.genomics.utils.OfflineAuth
+
+import org.apache.spark.Partition
+import org.apache.spark.SparkContext
+import org.apache.spark.TaskContext
+import org.apache.spark.rdd.RDD
+import scala.collection.JavaConversions._
 
 /**
  * A serializable version of the Read.
