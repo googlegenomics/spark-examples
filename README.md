@@ -11,12 +11,19 @@ The projects in this repository demonstrate working with genomic data accessible
 Getting Started
 ---------------
 
+ 1. git clone this repository.
+ 
+ 1. If you have not already done so, follow the Google Genomics [getting started instructions](https://cloud.google.com/genomics/install-genomics-tools) to set up your environment
+  including [installing gcloud](https://cloud.google.com/sdk/) and running `gcloud init`.
+
  1. Download and install [Apache Spark](https://spark.apache.org/downloads.html).
 
- 2. If needed, install [SBT](http://www.scala-sbt.org/release/docs/Getting-Started/Setup.html)
+ 1. Install [SBT](http://www.scala-sbt.org/release/docs/Getting-Started/Setup.html).
 
- 3. This project now includes code for calling the Genomics API using <a href="http://www.grpc.io">gRPC</a>.  To use gRPC, you'll need a version of ALPN that matches your JRE version. See the
-<a href="http://www.eclipse.org/jetty/documentation/9.2.10.v20150310/alpn-chapter.html">ALPN documentation</a> for a table of which ALPN JAR to use.
+ 1. This project now includes code for calling the Genomics API using [gRPC](http://www.grpc.io).  To use gRPC, you'll need a version of ALPN that matches your JRE version. 
+
+  2. See the [ALPN documentation](http://www.eclipse.org/jetty/documentation/9.2.10.v20150310/alpn-chapter.html) for a table of which ALPN jar to use for your JRE version.
+  2. Then download the correct version from [here](http://mvnrepository.com/artifact/org.mortbay.jetty.alpn/alpn-boot).
 
 Local Run
 ---------
