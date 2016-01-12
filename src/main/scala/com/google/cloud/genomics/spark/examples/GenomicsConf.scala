@@ -78,7 +78,10 @@ class PcaConf(arguments: Seq[String]) extends GenomicsConf(arguments) {
       descr =  "Use all references (except X and Y) to compute PCA " +
       "(overrides --references).")
   val debugDatasets = opt[Boolean]()
-  val minAlleleFrequency = opt[Float]()
+  val minAlleleFrequency = opt[Float](
+      descr = "For 2-way PCA, omit variants from the left variant set (typically 1,000 Genomes)" +
+      " by including only variants with allelic frequency (field AF) greater than" +
+      " or equal to this value.")
   val numPc = opt[Int](default = Some(2))
 
   /**
