@@ -99,7 +99,7 @@ class VariantsPcaDriver(conf: PcaConf, ctx: SparkContext = null) {
       println(s"Min allele frequency ${minAlleleFrequency}.")
       data.filter(variant => {
         val alleleFrequency = variant.info.get("AF")
-        alleleFrequency.map(_.get(0).toFloat > minAlleleFrequency)
+        alleleFrequency.map(_.get(0).toFloat >= minAlleleFrequency)
           .getOrElse(false)
       })
     } else {
