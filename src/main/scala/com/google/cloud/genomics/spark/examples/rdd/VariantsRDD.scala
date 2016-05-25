@@ -18,11 +18,8 @@ package com.google.cloud.genomics.spark.examples.rdd
 import java.lang.{Double => JDouble}
 import java.util.{List => JList}
 
-import com.google.api.services.genomics.model.SearchVariantsRequest
 import com.google.cloud.genomics.Client
-import com.google.cloud.genomics.utils.Contig
 import com.google.cloud.genomics.utils.OfflineAuth
-import com.google.cloud.genomics.utils.Paginator
 import com.google.cloud.genomics.utils.ShardBoundary
 import com.google.cloud.genomics.utils.ShardUtils
 import com.google.cloud.genomics.utils.ShardUtils.SexChromosomeFilter
@@ -44,11 +41,8 @@ import scala.collection.JavaConversions._
 
 /**
  * A serializable version of the Variant.
- * Currently Java Client model objects are not serializable, see
- * https://code.google.com/p/google-api-java-client/issues/detail?id=390
- * for more information.
+ * https://github.com/googlegenomics/spark-examples/issues/84
  */
-
 case class Call(callsetId: String, callsetName: String, genotype: List[Integer],
     genotypeLikelihood: Option[List[JDouble]], phaseset: String,
     info: Map[String, List[String]]) extends Serializable
@@ -187,8 +181,8 @@ class VariantsRddStats(sc: SparkContext) extends Serializable {
 
 /**
  * A simple Spark RDD backed by Google Genomics VariantStore and
- * populated via the SearchVariants API call
- * (https://cloud.google.com/genomics/v1beta2/reference/variants/search).
+ * populated via the StreamVariants API call
+ * (https://cloud.google.com/genomics/reference/rpc/google.genomics.v1#streamingvariantservice).
  */
 class VariantsRDD(sc: SparkContext,
     applicationName: String,
@@ -197,7 +191,6 @@ class VariantsRDD(sc: SparkContext,
     variantsPartitioner: VariantsPartitioner,
     stats:Option[VariantsRddStats] = None)
      extends RDD[(VariantKey, Variant)](sc, Nil) {
-
 
   override def getPartitions: Array[Partition] = {
     variantsPartitioner.getPartitions(variantSetId)
@@ -215,7 +208,7 @@ class VariantsRDD(sc: SparkContext,
     val partition = part.asInstanceOf[VariantsPartition]
     val request = partition.getVariantsRequest
     val responses = VariantStreamIterator.enforceShardBoundary(
-        auth, request, ShardBoundary.Requirement.OVERLAPS, null);
+        auth, request, ShardBoundary.Requirement.STRICT, null);
     val iterator = responses.flatMap(variantResponse => {
       variantResponse.getVariantsList().map(variant => {
           stats map { _.variantsAccum += 1 }

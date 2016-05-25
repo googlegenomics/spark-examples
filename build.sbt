@@ -10,7 +10,7 @@ scalacOptions += "-target:jvm-1.7"
 
 val sparkVersion = "1.3.1"
 
-val genomicsUtilsVersion = "v1beta2-0.38"
+val genomicsUtilsVersion = "v1-0.2"
 
 ivyScala := ivyScala.value map { _.copy(overrideScalaVersion = true) }
 

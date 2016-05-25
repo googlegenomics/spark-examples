@@ -21,10 +21,9 @@ import scala.collection.mutable.{Map => MutableMap}
 import org.apache.log4j.Level
 import org.apache.log4j.Logger
 import org.apache.spark.SparkContext._
-import com.google.cloud.genomics.spark.examples.rdd.FixedSplits
-import com.google.cloud.genomics.spark.examples.rdd.ReadsPartitioner
 import com.google.cloud.genomics.spark.examples.rdd.ReadsRDD
-import com.google.cloud.genomics.spark.examples.rdd.TargetSizeSplits
+import com.google.cloud.genomics.spark.examples.rdd.ReadsPartitioner
+import com.google.cloud.genomics.spark.examples.rdd.ReferencesReadsPartitioner
 import com.google.cloud.genomics.Authentication
 
 object Examples {
@@ -79,11 +78,11 @@ object SearchReadsExample1 {
     val applicationName = this.getClass.getName
     val sc = conf.newSparkContext(applicationName)
     Logger.getLogger("org").setLevel(Level.WARN)
-    val region = Map(("11" -> (Examples.Cilantro - 1000, Examples.Cilantro + 1000)))
     val accessToken = Authentication.getAccessToken(conf.clientSecrets.get)
+    val references = s"11:${Examples.Cilantro - 1000}:${Examples.Cilantro + 1000}"
     val data = new ReadsRDD(sc, applicationName, accessToken,
-      List(Examples.Google_Example_Readset),
-      new ReadsPartitioner(region, FixedSplits(1)))
+      Examples.Google_Example_Readset,
+      new ReferencesReadsPartitioner(references, conf.basesPerPartition()))
       .filter { rk =>
         val (_, read) = rk
         // TODO: Take the cigar into account
@@ -120,12 +119,11 @@ object SearchReadsExample2 {
     val sc = conf.newSparkContext(applicationName)
     val chr = "21"
     val len = Examples.HumanChromosomes(chr)
-    val region = Map((chr -> (1L, len)))
+    val references = s"${chr}:1:${len}"
     val accessToken = Authentication.getAccessToken(conf.clientSecrets.get)
     val data = new ReadsRDD(sc, applicationName, accessToken,
-      List(Examples.Google_Example_Readset),
-      new ReadsPartitioner(region,
-          TargetSizeSplits(100, 5, 1024, 16 * 1024 * 1024)))
+      Examples.Google_Example_Readset,
+      new ReferencesReadsPartitioner(references, conf.basesPerPartition()))
     // TODO: Take the cigar into account
     val coverage = data.map(_._2.alignedSequence.length.toLong)
       .reduce(_ + _).toDouble / len.toDouble
@@ -144,12 +142,11 @@ object SearchReadsExample3 {
     val applicationName = this.getClass.getName
     val sc = conf.newSparkContext(applicationName)
     val chr = "21"
-    val region = Map((chr -> (1L, Examples.HumanChromosomes(chr))))
+    val references = s"${chr}:1:${Examples.HumanChromosomes(chr)}"
     val accessToken = Authentication.getAccessToken(conf.clientSecrets.get)
     val data = new ReadsRDD(sc, applicationName, accessToken,
-      List(Examples.Google_Example_Readset),
-      new ReadsPartitioner(region,
-          TargetSizeSplits(100, 5, 1024, 16 * 1024 * 1024)))
+      Examples.Google_Example_Readset,
+      new ReferencesReadsPartitioner(references, conf.basesPerPartition()))
     data.flatMap { rk =>
       val (_, read) = rk
       val cover = MutableMap[Long, Int]()
@@ -179,7 +176,7 @@ object SearchReadsExample4 {
     val accessToken = Authentication.getAccessToken(conf.clientSecrets.get)
     val sc = conf.newSparkContext(applicationName)
     val chr = "1"
-    val region = Map((chr -> (100000000L, 101000000L)))
+    val references = s"${chr}:100000000:101000000"
     val minMappingQual = 30
     val minBaseQual = 30
     val minFreq = 0.25
@@ -216,9 +213,9 @@ object SearchReadsExample4 {
     //    (100091834,Map(G -> 0.2, A -> 0.11428571428571428, T -> 0.6857142857142857))
     //    (100091835,Map(G -> 0.7142857142857143, A -> 0.2, T -> 0.08571428571428572))
     //    (100091836,Map(G -> 0.08333333333333333, A -> 0.7222222222222222, T -> 0.19444444444444445))
-    def freqRDD(readsets: List[String], partitioner: ReadsPartitioner) = {
+    def freqRDD(readGroupSetId: String, partitioner: ReadsPartitioner) = {
       new ReadsRDD(sc, applicationName, accessToken,
-          readsets, partitioner)
+          readGroupSetId, partitioner)
         .filter(rk => rk._2.mappingQuality >= minMappingQual)
         .flatMap { rk =>
           val (_, read) = rk
@@ -243,9 +240,9 @@ object SearchReadsExample4 {
         .map(p => (p._1, p._2.head))
     }
 
-    val part16M = new ReadsPartitioner(region, TargetSizeSplits(100, 30, 1024, 16 * 1024 * 1024))
-    val normal = freqRDD(List(Examples.Google_DREAM_Set3_Normal), part16M)
-    val tumor = freqRDD(List(Examples.Google_DREAM_Set3_Tumor), part16M)
+    val readsPartitioner = new ReferencesReadsPartitioner(references, conf.basesPerPartition())
+    val normal = freqRDD(Examples.Google_DREAM_Set3_Normal, readsPartitioner)
+    val tumor = freqRDD(Examples.Google_DREAM_Set3_Tumor, readsPartitioner)
 
     // Generate a new RDD that maps position to a pair of sorted base strings where
     // the first item is the normal and the second is the tumor.
