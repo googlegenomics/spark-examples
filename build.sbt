@@ -8,9 +8,9 @@ scalaVersion := "2.10.4"
 
 scalacOptions += "-target:jvm-1.7"
 
-val sparkVersion = "1.3.1"
+val sparkVersion = "1.6.1"
 
-val genomicsUtilsVersion = "v1-0.2"
+val genomicsUtilsVersion = "v1-0.3"
 
 ivyScala := ivyScala.value map { _.copy(overrideScalaVersion = true) }
 
@@ -41,5 +41,6 @@ assemblyShadeRules in assembly := Seq(
       ShadeRule.rename("io.netty.channel.**" -> "shadeioi.io.netty.channel.@1").inAll,
       ShadeRule.rename("io.netty.util.**" -> "shadeio.io.netty.util.@1").inAll,
       ShadeRule.rename("io.netty.bootstrap.**" -> "shadeio.io.netty.bootstrap.@1").inAll,
+      ShadeRule.rename("com.google.common.**" -> "shade.com.google.common.@1").inAll,
       ShadeRule.rename("com.google.protobuf.**" -> "shade.com.google.protobuf.@1").inAll
     )
